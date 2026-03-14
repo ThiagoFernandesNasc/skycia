@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 
 function normalizar(texto) {
   return String(texto || '')
@@ -173,3 +173,4 @@ async function gerarRespostaLLM({ pergunta, historico = [], voos = [], modo = 'e
 }
 
 module.exports = { gerarRespostaLLM };
+

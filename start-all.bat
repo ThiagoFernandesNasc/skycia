@@ -1,7 +1,20 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 
 set ROOT=%~dp0
+set "BOOT_ENV_FILE=%ROOT%projetoti\.env"
+
+if exist "%BOOT_ENV_FILE%" (
+  for /f "usebackq tokens=1* delims==" %%A in ("%BOOT_ENV_FILE%") do (
+    if /I "%%A"=="DB_HOST" if "%MYSQL_HOST%"=="" set "MYSQL_HOST=%%B"
+    if /I "%%A"=="DB_USER" if "%MYSQL_USER%"=="" set "MYSQL_USER=%%B"
+    if /I "%%A"=="DB_PASS" if "%MYSQL_PASS_RAW%"=="" set "MYSQL_PASS_RAW=%%B"
+    REM handle UTF-8 BOM in first key
+    if /I "%%A"=="ï»¿DB_HOST" if "%MYSQL_HOST%"=="" set "MYSQL_HOST=%%B"
+    if /I "%%A"=="ï»¿DB_USER" if "%MYSQL_USER%"=="" set "MYSQL_USER=%%B"
+    if /I "%%A"=="ï»¿DB_PASS" if "%MYSQL_PASS_RAW%"=="" set "MYSQL_PASS_RAW=%%B"
+  )
+)
 
 echo [1/6] Validando Node.js e npm...
 where node >nul 2>&1
@@ -19,8 +32,15 @@ if errorlevel 1 (
 
 echo [2/6] Validando MySQL CLI...
 set MYSQL_AVAILABLE=1
+set "MYSQL_EXE="
 where mysql >nul 2>&1
 if errorlevel 1 (
+  if exist "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" set "MYSQL_EXE=C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
+) else (
+  for /f "delims=" %%M in ('where mysql') do set "MYSQL_EXE=%%M"
+)
+if exist "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" set "MYSQL_EXE=C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
+if "%MYSQL_EXE%"=="" (
   set MYSQL_AVAILABLE=0
   echo [AVISO] mysql nao encontrado no PATH.
   echo [AVISO] O script vai iniciar a aplicacao e pular a criacao automatica dos bancos.
@@ -38,7 +58,7 @@ if "%MYSQL_AVAILABLE%"=="1" (
     set MYSQL_PASS=
   )
 
-  mysql -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -e "SELECT 1;" >nul 2>&1
+  "%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -e "SELECT 1;" >nul 2>&1
   if errorlevel 1 (
     echo [AVISO] Falha ao conectar no MySQL com os dados informados.
     echo [AVISO] O script vai iniciar a aplicacao e pular a criacao automatica dos bancos.
@@ -73,12 +93,12 @@ if not exist ".env" (
 if "%MYSQL_AVAILABLE%"=="1" (
   set DB1=
   set DB2=
-  for /f "delims=" %%A in ('mysql -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -N -s -e "SHOW DATABASES LIKE 'sistema_voos';"') do set DB1=%%A
-  for /f "delims=" %%A in ('mysql -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -N -s -e "SHOW DATABASES LIKE 'sistema_voos_spec';"') do set DB2=%%A
+  for /f "delims=" %%A in ('"%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -N -s -e "SHOW DATABASES LIKE 'sistema_voos';"') do set DB1=%%A
+  for /f "delims=" %%A in ('"%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -N -s -e "SHOW DATABASES LIKE 'sistema_voos_spec';"') do set DB2=%%A
 
   if "%DB1%"=="" (
     echo Criando banco operacional...
-    mysql -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% < operacional.sql
+    "%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% < operacional.sql
     if errorlevel 1 (
       echo [ERRO] Falha ao criar banco operacional.
       exit /b 1
@@ -89,7 +109,7 @@ if "%MYSQL_AVAILABLE%"=="1" (
 
   if "%DB2%"=="" (
     echo Criando banco spec...
-    mysql -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% < spec.sql
+    "%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% < spec.sql
     if errorlevel 1 (
       echo [ERRO] Falha ao criar banco spec.
       exit /b 1

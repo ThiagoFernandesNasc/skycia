@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const voosRoutes = require('./routes/voos.routes');
@@ -15,7 +16,9 @@ try {
 }
 
 const app = express();
-app.use(cors());
+const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
 
 app.get('/docs.json', (_req, res) => {

@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -95,7 +95,7 @@ router.post('/register', async (req, res) => {
 
 // POST /auth/login
 router.post('/login', async (req, res) => {
-  const { email, senha } = req.body;
+  const { email, senha, rememberMe } = req.body;
 
   if (!email || !senha) {
     return res.status(400).json({ error: 'Email e senha são obrigatórios' });
@@ -134,11 +134,22 @@ router.post('/login', async (req, res) => {
     }
 
     const jti = crypto.randomUUID();
+    const longSession = !!rememberMe;
+    const expiresIn = longSession ? '7d' : '2h';
+    const maxAgeMs = longSession ? 7 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
     const token = jwt.sign(
       { id: usuario.id, perfil: usuario.perfil, jti },
       JWT_SECRET,
-      { expiresIn: '2h' }
+      { expiresIn }
     );
+
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
+      maxAge: maxAgeMs,
+    });
 
     await dbSpec.query(
       `INSERT INTO sessao_usuario (usuario_id, jti, user_agent, ip, ativa)
@@ -147,7 +158,6 @@ router.post('/login', async (req, res) => {
     );
 
     return res.json({
-      token,
       usuario: {
         id: usuario.id,
         nome: usuario.nome,
@@ -305,6 +315,26 @@ router.post('/sessions/:id/revoke', autenticar, async (req, res) => {
   }
 });
 
+// POST /auth/logout
+router.post('/logout', autenticar, async (req, res) => {
+  try {
+    if (req.usuario?.jti) {
+      await ensureSecurityTables();
+      await dbSpec.query(
+        `UPDATE sessao_usuario
+         SET ativa = 0, revogada_em = NOW()
+         WHERE usuario_id = ? AND jti = ?`,
+        [req.usuario.id, req.usuario.jti]
+      );
+    }
+  } catch (err) {
+    console.error(err);
+  }
+  const isProd = process.env.NODE_ENV === 'production';
+  res.clearCookie('auth_token', { sameSite: isProd ? 'none' : 'lax', secure: isProd });
+  return res.json({ message: 'Logout realizado' });
+});
+
 // POST /auth/lgpd/request
 router.post('/lgpd/request', autenticar, async (req, res) => {
   const tipo = String(req.body?.tipo || '').trim().toUpperCase();
@@ -327,3 +357,4 @@ router.post('/lgpd/request', autenticar, async (req, res) => {
 });
 
 module.exports = router;
+

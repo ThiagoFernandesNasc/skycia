@@ -2,7 +2,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { jsPDF } from 'jspdf';
-import api, { setAuthToken } from './api';
+import api from './api';
 import './App.css';
 
 const MOCK_RELATORIOS = [
@@ -112,6 +112,10 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   const a = Math.sin(dLat / 2) ** 2
     + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function pickWeightedRisk() {
@@ -534,7 +538,9 @@ const AIRPORT_COORDS = {
   CDG: { lat: 49.0097, lng: 2.5479 },
   CGH: { lat: -23.6267, lng: -46.6564 },
   CNF: { lat: -19.6357, lng: -43.9669 },
+  CGR: { lat: -20.4697, lng: -54.6725 },
   DOH: { lat: 25.2736, lng: 51.6081 },
+  IGU: { lat: -25.6003, lng: -54.4857 },
   DXB: { lat: 25.2532, lng: 55.3657 },
   FRA: { lat: 50.0379, lng: 8.5622 },
   GRU: { lat: -23.4356, lng: -46.4731 },
@@ -551,7 +557,10 @@ const AIRPORT_COORDS = {
   SFO: { lat: 37.6213, lng: -122.379 },
   SIN: { lat: 1.3644, lng: 103.9915 },
   SVO: { lat: 55.9726, lng: 37.4146 },
+  STM: { lat: -2.422, lng: -54.7923 },
   SYD: { lat: -33.9399, lng: 151.1753 },
+  SJP: { lat: -20.8166, lng: -49.4065 },
+  NVT: { lat: -26.8799, lng: -48.6514 },
   VCP: { lat: -23.0074, lng: -47.1345 },
 };
 
@@ -576,7 +585,9 @@ const MAP_AIRPORT_POINTS = [
   // Brasil (por estado)
   { code: 'GRU', city: 'Sao Paulo', country: 'Brasil', state: 'SP', lat: -23.4356, lng: -46.4731 },
   { code: 'CGH', city: 'Sao Paulo', country: 'Brasil', state: 'SP', lat: -23.6267, lng: -46.6564 },
+  { code: 'CGR', city: 'Campo Grande', country: 'Brasil', state: 'MS', lat: -20.4697, lng: -54.6725 },
   { code: 'VCP', city: 'Campinas', country: 'Brasil', state: 'SP', lat: -23.0074, lng: -47.1345 },
+  { code: 'SJP', city: 'Sao Jose do Rio Preto', country: 'Brasil', state: 'SP', lat: -20.8166, lng: -49.4065 },
   { code: 'SDU', city: 'Rio de Janeiro', country: 'Brasil', state: 'RJ', lat: -22.9114, lng: -43.1649 },
   { code: 'GIG', city: 'Rio de Janeiro', country: 'Brasil', state: 'RJ', lat: -22.809, lng: -43.2506 },
   { code: 'BSB', city: 'Brasilia', country: 'Brasil', state: 'DF', lat: -15.8692, lng: -47.9208 },
@@ -585,7 +596,10 @@ const MAP_AIRPORT_POINTS = [
   { code: 'SSA', city: 'Salvador', country: 'Brasil', state: 'BA', lat: -12.9086, lng: -38.3225 },
   { code: 'FOR', city: 'Fortaleza', country: 'Brasil', state: 'CE', lat: -3.7763, lng: -38.5326 },
   { code: 'BEL', city: 'Belem', country: 'Brasil', state: 'PA', lat: -1.3793, lng: -48.4763 },
+  { code: 'STM', city: 'Santarem', country: 'Brasil', state: 'PA', lat: -2.422, lng: -54.7923 },
   { code: 'MAO', city: 'Manaus', country: 'Brasil', state: 'AM', lat: -3.0386, lng: -60.0497 },
+  { code: 'NVT', city: 'Navegantes', country: 'Brasil', state: 'SC', lat: -26.8799, lng: -48.6514 },
+  { code: 'IGU', city: 'Foz do Iguacu', country: 'Brasil', state: 'PR', lat: -25.6003, lng: -54.4857 },
   { code: 'POA', city: 'Porto Alegre', country: 'Brasil', state: 'RS', lat: -29.9944, lng: -51.1714 },
   { code: 'CWB', city: 'Curitiba', country: 'Brasil', state: 'PR', lat: -25.5317, lng: -49.1761 },
   { code: 'FLN', city: 'Florianopolis', country: 'Brasil', state: 'SC', lat: -27.6703, lng: -48.5525 },
@@ -650,6 +664,7 @@ const MAP_AIRPORT_POINTS = [
   { code: 'ARN', city: 'Estocolmo', country: 'Suecia', state: '-', lat: 59.6519, lng: 17.9186 },
   { code: 'OSL', city: 'Oslo', country: 'Noruega', state: '-', lat: 60.1939, lng: 11.1004 },
   { code: 'HEL', city: 'Helsinque', country: 'Finlandia', state: '-', lat: 60.3172, lng: 24.9633 },
+  { code: 'SVO', city: 'Moscou', country: 'Rússia', state: '-', lat: 55.9726, lng: 37.4146 },
   { code: 'IST', city: 'Istambul', country: 'Turquia', state: '-', lat: 41.2753, lng: 28.7519 },
   { code: 'ATH', city: 'Atenas', country: 'Grecia', state: '-', lat: 37.9364, lng: 23.9475 },
   // Africa
@@ -760,6 +775,32 @@ function headingDegrees(from, to) {
 
 const MAP_TICK_MS = 120;
 const MAP_TICK_SECONDS = MAP_TICK_MS / 1000;
+const LIVE_REFRESH_MS = 25000;
+const LIVE_FLIGHTS_LIMIT = 30;
+const AUTH_SESSION_STORAGE_KEY = 'auth_session';
+
+function getStoredSessionFlag() {
+  return localStorage.getItem(AUTH_SESSION_STORAGE_KEY) || sessionStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+}
+
+function getRememberMeDefault() {
+  return !!localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+}
+
+function persistSessionFlag(isAuthed, rememberMe) {
+  if (isAuthed) {
+    if (rememberMe) {
+      localStorage.setItem(AUTH_SESSION_STORAGE_KEY, '1');
+      sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    } else {
+      sessionStorage.setItem(AUTH_SESSION_STORAGE_KEY, '1');
+      localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    }
+  } else {
+    localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+  }
+}
 
 function planeIcon(risco, selected, angle) {
   const svgPlane = `<span class="plane-glyph" style="transform: rotate(${angle}deg);">✈</span>`;
@@ -812,6 +853,309 @@ function mapFlightToAircraftCard(flight) {
   };
 }
 
+function liveSourceBadgeLabel(source, tr) {
+  const value = String(source || '').toLowerCase();
+  if (value === 'opensky') return tr('OpenSky', 'OpenSky');
+  if (value === 'aerodatabox') return tr('AeroDataBox', 'AeroDataBox');
+  if (value === 'local') return tr('Fallback local', 'Local fallback');
+  if (value === 'all') return tr('OpenSky + AeroDataBox', 'OpenSky + AeroDataBox');
+  return tr('Fallback local', 'Local fallback');
+}
+
+function hashFromString(value) {
+  const input = String(value || 'live');
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = ((hash << 5) - hash) + input.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function normalizeLiveRisk(status) {
+  const value = String(status || '').toLowerCase();
+  if (value.includes('cancel') || value.includes('atras')) return 'atraso';
+  if (value.includes('prev') || value.includes('scheduled') || value.includes('boarding')) return 'atencao';
+  return 'operando';
+}
+
+function formatTimeFromIso(value) {
+  if (!value) return '--:--';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '--:--';
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatUtcClock(value) {
+  if (!value) return '--:-- UTC';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '--:-- UTC';
+  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())} UTC`;
+}
+
+function formatCoord(value, isLat) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '-';
+  const dir = n >= 0 ? (isLat ? 'N' : 'E') : (isLat ? 'S' : 'W');
+  return `${Math.abs(n).toFixed(2)}° ${dir}`;
+}
+
+function formatHeading(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '-';
+  return `${Math.round(n)}°`;
+}
+
+function formatDistanceKm(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '-';
+  return `${Math.round(n).toLocaleString('pt-BR')} km`;
+}
+
+function weatherLabelFromCode(code) {
+  const c = Number(code);
+  if (!Number.isFinite(c)) return 'Desconhecido';
+  if (c === 0) return 'Céu limpo';
+  if (c <= 3) return 'Parcialmente nublado';
+  if (c === 45 || c === 48) return 'Neblina';
+  if (c >= 51 && c <= 57) return 'Garoa';
+  if (c >= 61 && c <= 67) return 'Chuva';
+  if (c >= 71 && c <= 77) return 'Neve';
+  if (c >= 80 && c <= 82) return 'Pancadas';
+  if (c >= 95) return 'Tempestade';
+  return 'Instável';
+}
+
+function parseAirportRef(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return { code: 'UNK', city: 'Unknown' };
+  const upper = raw.toUpperCase();
+  if (/^[A-Z]{3,4}$/.test(upper)) return { code: upper.slice(0, 3), city: upper.slice(0, 3) };
+  const codeMatch = upper.match(/\b[A-Z]{3,4}\b/);
+  if (codeMatch) return { code: codeMatch[0].slice(0, 3), city: raw };
+  const simpleCode = raw.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3) || 'UNK';
+  return { code: simpleCode, city: raw };
+}
+
+function pseudoPointFromSeed(seed, hint) {
+  const h1 = hashFromString(`${seed}-lat`);
+  const h2 = hashFromString(`${seed}-lng`);
+  const lat = -60 + (h1 % 120) + ((h1 % 100) / 100);
+  const lng = -170 + (h2 % 340) + ((h2 % 100) / 100);
+  return {
+    code: hint?.code || 'UNK',
+    city: hint?.city || 'Unknown',
+    country: 'Global',
+    state: '-',
+    lat,
+    lng,
+  };
+}
+
+function resolveAirportPoint(refValue, airportCatalog, seed) {
+  const parsed = parseAirportRef(refValue);
+  const byCode = airportCatalog.get(parsed.code);
+  if (byCode) return byCode;
+
+  const cityNorm = parsed.city.toLowerCase();
+  for (const candidate of airportCatalog.values()) {
+    if (String(candidate.city || '').toLowerCase() === cityNorm) return candidate;
+  }
+  return pseudoPointFromSeed(seed, parsed);
+}
+
+function estimateProgress(fromPoint, toPoint, liveLat, liveLng, fallbackSeed) {
+  if (
+    Number.isFinite(fromPoint?.lat)
+    && Number.isFinite(fromPoint?.lng)
+    && Number.isFinite(toPoint?.lat)
+    && Number.isFinite(toPoint?.lng)
+    && Number.isFinite(liveLat)
+    && Number.isFinite(liveLng)
+  ) {
+    const total = haversineKm(fromPoint.lat, fromPoint.lng, toPoint.lat, toPoint.lng);
+    if (total > 1) {
+      const done = haversineKm(fromPoint.lat, fromPoint.lng, liveLat, liveLng);
+      return clamp(done / total, 0.03, 0.97);
+    }
+  }
+  const fallback = (hashFromString(fallbackSeed) % 75) / 100;
+  return clamp(0.1 + fallback, 0.08, 0.95);
+}
+
+function isLivePositionPlausible(fromPoint, toPoint, liveLat, liveLng) {
+  if (!Number.isFinite(liveLat) || !Number.isFinite(liveLng)) return false;
+  if (
+    !Number.isFinite(fromPoint?.lat)
+    || !Number.isFinite(fromPoint?.lng)
+    || !Number.isFinite(toPoint?.lat)
+    || !Number.isFinite(toPoint?.lng)
+  ) return false;
+
+  const routeKm = haversineKm(fromPoint.lat, fromPoint.lng, toPoint.lat, toPoint.lng);
+  if (!Number.isFinite(routeKm) || routeKm < 60) return true;
+
+  const fromToLiveKm = haversineKm(fromPoint.lat, fromPoint.lng, liveLat, liveLng);
+  const toToLiveKm = haversineKm(toPoint.lat, toPoint.lng, liveLat, liveLng);
+
+  // Detour factor: point should remain close to route path, not only close to endpoints.
+  const detourFactor = (fromToLiveKm + toToLiveKm) / Math.max(1, routeKm);
+  if (detourFactor > 1.22) return false;
+
+  // Endpoint sanity: reject points absurdly far from both ends for medium/long routes.
+  const endpointTolerance = routeKm * 0.35;
+  return fromToLiveKm <= (routeKm + endpointTolerance) && toToLiveKm <= (routeKm + endpointTolerance);
+}
+
+function isNationalTemplateFlight(flight) {
+  return String(flight?.regiao || '').toLowerCase().includes('nacional');
+}
+
+function pickTemplateFlightById(id, mode = 'mixed') {
+  const nationalPool = MAP_FLIGHTS.filter(isNationalTemplateFlight);
+  const internationalPool = MAP_FLIGHTS.filter((f) => !isNationalTemplateFlight(f));
+  const nowHour = new Date().getHours();
+  const seed = hashFromString(`${id}-${nowHour}`);
+  const ratioNational = (nowHour >= 6 && nowHour <= 21) ? 0.65 : 0.35;
+
+  let pool = MAP_FLIGHTS;
+  if (mode === 'national' && nationalPool.length) {
+    pool = nationalPool;
+  } else if (mode === 'international' && internationalPool.length) {
+    pool = internationalPool;
+  } else if (mode === 'mixed') {
+    const chooseNational = ((seed % 100) / 100) < ratioNational;
+    pool = chooseNational ? (nationalPool.length ? nationalPool : MAP_FLIGHTS) : (internationalPool.length ? internationalPool : MAP_FLIGHTS);
+  }
+
+  if (!pool.length) return null;
+  return pool[seed % pool.length];
+}
+
+function fallbackTimesByNow(fromPoint, toPoint, idSeed) {
+  const now = new Date();
+  const distanceKm = haversineKm(fromPoint?.lat || 0, fromPoint?.lng || 0, toPoint?.lat || 0, toPoint?.lng || 0);
+  const cruiseKmh = 700 + (hashFromString(`${idSeed}-cruise`) % 260);
+  const durationMinutes = Math.max(50, Math.round((distanceKm / Math.max(420, cruiseKmh)) * 60 + 30));
+  const offsetSeed = hashFromString(`${idSeed}-offset`) % 55;
+  const departedMinutesAgo = Math.max(5, offsetSeed);
+  const departure = new Date(now.getTime() - departedMinutesAgo * 60_000);
+  const arrival = new Date(departure.getTime() + durationMinutes * 60_000);
+  return {
+    departureLabel: `${pad2(departure.getHours())}:${pad2(departure.getMinutes())}`,
+    arrivalLabel: `${pad2(arrival.getHours())}:${pad2(arrival.getMinutes())}`,
+  };
+}
+
+function mapLiveFlightToMapFlight(flight, airportCatalog) {
+  const id = String(flight?.id || flight?.callsign || '').trim();
+  if (!id) return null;
+
+  const source = String(flight?.source || 'local').toLowerCase();
+  const parsedOrigin = parseAirportRef(flight?.origin);
+  const parsedDestination = parseAirportRef(flight?.destination);
+  const lat = Number.isFinite(Number(flight?.lat)) ? Number(flight.lat) : null;
+  const lng = Number.isFinite(Number(flight?.lng)) ? Number(flight.lng) : null;
+  const speedKmh = Number.isFinite(Number(flight?.speed)) ? Number(flight.speed) : null;
+  const altitudeFeet = Number.isFinite(Number(flight?.altitude)) ? Number(flight.altitude) : null;
+
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+  const hasRouteFromApi = parsedOrigin.code !== 'UNK' && parsedDestination.code !== 'UNK';
+  const hasKinematics = speedKmh !== null || altitudeFeet !== null;
+  if (!hasCoords || (!hasRouteFromApi && !hasKinematics)) return null;
+  const templateMode = !hasRouteFromApi ? 'mixed' : 'international';
+  const template = pickTemplateFlightById(id, source === 'local' ? 'mixed' : templateMode);
+  const gate = flight?.departureGate || flight?.arrivalGate || template?.portao || '-';
+  const terminal = flight?.departureTerminal || flight?.arrivalTerminal || '-';
+
+  let fromPoint = resolveAirportPoint(flight.origin, airportCatalog, `${id}-from`);
+  let toPoint = resolveAirportPoint(flight.destination, airportCatalog, `${id}-to`);
+  if (fromPoint.code === 'UNK' && template?.from) {
+    fromPoint = resolveAirportPoint(template.from.code || template.from.city, airportCatalog, `${id}-template-from`);
+  }
+  if (toPoint.code === 'UNK' && template?.to) {
+    toPoint = resolveAirportPoint(template.to.code || template.to.city, airportCatalog, `${id}-template-to`);
+  }
+  if (fromPoint.code === toPoint.code) {
+    if (template?.to && template.to.code !== fromPoint.code) {
+      toPoint = resolveAirportPoint(template.to.code || template.to.city, airportCatalog, `${id}-template-alt-dest`);
+    } else {
+      toPoint = pseudoPointFromSeed(`${id}-alt-dest`, toPoint);
+    }
+  }
+
+  const heading = Number(flight?.heading);
+  const liveHeading = Number.isFinite(heading) ? heading : (hashFromString(`${id}-heading`) % 360);
+
+  // If provider has only current position, build a short synthetic route around it.
+  if ((fromPoint.code === 'UNK' || toPoint.code === 'UNK') && Number.isFinite(lat) && Number.isFinite(lng)) {
+    const rad = (liveHeading * Math.PI) / 180;
+    fromPoint = { ...fromPoint, lat: lat - (Math.cos(rad) * 3), lng: lng - (Math.sin(rad) * 3) };
+    toPoint = { ...toPoint, lat: lat + (Math.cos(rad) * 3), lng: lng + (Math.sin(rad) * 3) };
+  }
+
+  const progress = estimateProgress(fromPoint, toPoint, lat, lng, `${id}-progress`);
+  let departureTimeLabel = formatTimeFromIso(flight?.departureTime);
+  let arrivalTimeLabel = formatTimeFromIso(flight?.arrivalTime);
+  let timeEstimated = false;
+  if (departureTimeLabel === '--:--' || arrivalTimeLabel === '--:--') {
+    const fallback = fallbackTimesByNow(fromPoint, toPoint, id);
+    if (departureTimeLabel === '--:--') departureTimeLabel = fallback.departureLabel;
+    if (arrivalTimeLabel === '--:--') arrivalTimeLabel = fallback.arrivalLabel;
+    timeEstimated = true;
+  }
+  const routePoint = interpolatePoint(fromPoint, toPoint, progress);
+  const useLivePosition = isLivePositionPlausible(fromPoint, toPoint, lat, lng);
+  const finalLat = useLivePosition ? lat : routePoint.lat;
+  const finalLng = useLivePosition ? lng : routePoint.lng;
+
+  const region = fromPoint.country && toPoint.country
+    ? (fromPoint.country === toPoint.country
+      ? (fromPoint.country === 'Brasil' ? 'Nacional/Regional' : fromPoint.country)
+      : `${fromPoint.country}/${toPoint.country}`)
+    : (template?.regiao || 'Global');
+
+  return {
+    id,
+    cia: String(flight?.airline || template?.cia || flight?.callsign || 'N/A'),
+    from: {
+      code: fromPoint.code || 'UNK',
+      city: fromPoint.city || template?.from?.city || 'Unknown',
+      lat: fromPoint.lat,
+      lng: fromPoint.lng,
+      time: departureTimeLabel,
+      timeEstimated,
+      x: 50,
+      y: 50,
+    },
+    to: {
+      code: toPoint.code || 'UNK',
+      city: toPoint.city || template?.to?.city || 'Unknown',
+      lat: toPoint.lat,
+      lng: toPoint.lng,
+      time: arrivalTimeLabel,
+      timeEstimated,
+      x: 50,
+      y: 50,
+    },
+    lat: finalLat,
+    lng: finalLng,
+    altitude: altitudeFeet !== null ? `${Math.round(altitudeFeet).toLocaleString('pt-BR')} ft` : '-',
+    velocidade: speedKmh !== null ? `${Math.round(speedKmh)} km/h` : '-',
+    aeronave: String(flight?.aircraft || template?.aeronave || '-'),
+    portao: gate,
+    terminal,
+    progress,
+    speed: clamp(((speedKmh || 620) / 1000) * 0.016, 0.006, 0.02),
+    risco: normalizeLiveRisk(flight?.status),
+    regiao: region,
+    atualizado: formatUtcClock(flight?.updatedAt),
+    heading: liveHeading,
+    statusRaw: String(flight?.status || ''),
+    source,
+  };
+}
+
 function normalizePercent(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
@@ -822,6 +1166,23 @@ function probabilityMeta(percent) {
   if (percent >= 70) return { tone: 'danger', label: 'high' };
   if (percent >= 40) return { tone: 'warn', label: 'medium' };
   return { tone: 'ok', label: 'low' };
+}
+
+function advanceFlightProgress(flight) {
+  const baseProgress = Number.isFinite(flight?.progress) ? flight.progress : Math.random();
+  const speed = Number.isFinite(flight?.speed) ? flight.speed : 0.012;
+  let next = baseProgress + speed * MAP_TICK_SECONDS;
+  if (!Number.isFinite(next)) next = Math.random();
+  if (next >= 1) next -= 1;
+  if (next < 0) next = 0;
+
+  const from = flight?.from;
+  const to = flight?.to;
+  if (from && to && Number.isFinite(from.lat) && Number.isFinite(from.lng) && Number.isFinite(to.lat) && Number.isFinite(to.lng)) {
+    const routePoint = interpolatePoint(from, to, next);
+    return { ...flight, progress: next, lat: routePoint.lat, lng: routePoint.lng };
+  }
+  return { ...flight, progress: next };
 }
 
   // Gera um conjunto de voos "ambient" para popular o mapa (mock de fundo)
@@ -843,7 +1204,7 @@ function probabilityMeta(percent) {
   }
 
   function App() {
-  const [token, setToken] = useState(null);
+  const [token, setToken] = useState(() => !!getStoredSessionFlag());
   const [me, setMe] = useState(null);
   const [erro, setErro] = useState('');
   const [email, setEmail] = useState('user1@example.com');
@@ -853,18 +1214,136 @@ function probabilityMeta(percent) {
   const [perfil, setPerfil] = useState('OPERADOR');
   const [modoAuth, setModoAuth] = useState('login');
   const [cookieStatus, setCookieStatus] = useState(() => localStorage.getItem('cookie_status') || '');
+  const [loginOpen, setLoginOpen] = useState(false);
+
+  const showCookieBanner = cookieStatus !== 'aceito' && cookieStatus !== 'recusado';
+  const renderCookieBanner = () => {
+    if (!showCookieBanner) return null;
+    return (
+      <div className="cookie-banner">
+        <div className="cookie-text">
+          <strong>{tr('Cookies', 'Cookies')}</strong>
+          <span>{tr('Usamos cookies para melhorar sua experiência e analisar o tráfego. Você pode aceitar, recusar ou ajustar preferências.', 'We use cookies to improve your experience and analyze traffic. You can accept, reject, or adjust preferences.')}</span>
+        </div>
+        <div className="cookie-actions">
+          <button className="btn ghost" type="button">{tr('Preferências', 'Preferences')}</button>
+          <button className="btn ghost" onClick={() => { setCookieStatus('recusado'); localStorage.setItem('cookie_status', 'recusado'); }}>{tr('Recusar', 'Reject')}</button>
+          <button className="btn primary" onClick={() => { setCookieStatus('aceito'); localStorage.setItem('cookie_status', 'aceito'); }}>{tr('Aceitar', 'Accept')}</button>
+        </div>
+      </div>
+    );
+  };
+  const renderAuthModal = () => {
+    if (!loginOpen) return null;
+    return (
+      <div className="auth-modal">
+        <div className="auth-wrap">
+          <div className="company-corner">SkyTrak AirTraffic Control</div>
+          <div className="auth-globe" aria-hidden="true">
+            <div className="auth-globe-core" />
+          </div>
+          <div className="auth-card">
+            <button type="button" className="auth-close" onClick={() => setLoginOpen(false)} aria-label={tr('Fechar', 'Close')}>×</button>
+            <div className="login-hero">
+              <span className="login-badge">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M2.2 12.8 10.5 11 19 2.5c.8-.8 2-.8 2.8 0 .8.8.8 2 0 2.8L13.3 14l-1.8 8.3-2.3-2.3-3.3.7.7-3.3-2.4-2.4Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <img
+                className="auth-logo"
+                src="/skytrak-logo-transparent.png"
+                alt="SkyTrak AirTraffic Control"
+                onError={(e) => {
+                  const cur = e.currentTarget;
+                  if (!cur.src.includes('skytrak-logo.png')) cur.src = '/skytrak-logo.png';
+                }}
+              />
+              <p>{tr('Sistema de Gestão Aeroportuária', 'Airport Management System')}</p>
+            </div>
+            {modoAuth === 'login' ? (
+              <form onSubmit={handleLogin} className="auth-form">
+                <label>{tr('Email', 'Email')}<input placeholder={tr('seu@email.com', 'your@email.com')} value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+                <label>{tr('Senha', 'Password')}
+                  <div className="password-wrap">
+                    <input type={showLoginPassword ? 'text' : 'password'} value={senha} onChange={(e) => setSenha(e.target.value)} />
+                    <button type="button" className="toggle-pass" onClick={() => setShowLoginPassword((v) => !v)} aria-label={showLoginPassword ? tr('Ocultar senha', 'Hide password') : tr('Mostrar senha', 'Show password')}>
+                      {showLoginPassword ? (
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M3 4.5 21 19.5M9.9 9.4A3.6 3.6 0 0 1 12 8.8a3.8 3.8 0 0 1 3.8 3.8c0 .7-.2 1.4-.6 2M6.2 7.2A16.3 16.3 0 0 1 12 6c4.8 0 8.4 2.8 9.8 6.6a12.6 12.6 0 0 1-2.4 3.7M4.2 12.6C5.6 8.8 9.2 6 14 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M2.4 12C4 8.4 7.7 6 12 6s8 2.4 9.6 6c-1.6 3.6-5.3 6-9.6 6s-8-2.4-9.6-6Z" stroke="currentColor" strokeWidth="1.6" />
+                          <circle cx="12" cy="12" r="2.8" stroke="currentColor" strokeWidth="1.6" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </label>
+                <div className="login-row">
+                  <label className="remember-check"><input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} /> {tr('Lembrar-me', 'Remember me')}</label>
+                  <button type="button" className="btn linklike" onClick={() => setErro(tr('Entre em contato com o administrador para redefinir senha.', 'Contact the administrator to reset password.'))}>{tr('Esqueci a senha', 'Forgot password')}</button>
+                </div>
+                {erro && <span className="error">{erro}</span>}
+                <button className="btn primary" type="submit">{tr('Entrar', 'Sign In')}</button>
+                <button className="btn ghost" type="button" onClick={() => setModoAuth('register')}>{tr('Criar conta', 'Create account')}</button>
+              </form>
+            ) : (
+              <form onSubmit={handleRegister} className="auth-form">
+                <label>{tr('Nome', 'Name')}<input value={nome} onChange={(e) => setNome(e.target.value)} /></label>
+                <label>{tr('Email', 'Email')}<input value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+                <label>{tr('Senha', 'Password')}<input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} /></label>
+                <label>{tr('Perfil', 'Profile')}
+                  <select value={perfil} onChange={(e) => setPerfil(e.target.value)}>
+                    <option value="OPERADOR">{tr('Operador', 'Operator')}</option>
+                    <option value="ADMIN">{tr('Administrador', 'Administrator')}</option>
+                    <option value="CIA">{tr('Companhia', 'Airline')}</option>
+                    <option value="PASSAGEIRO">{tr('Passageiro', 'Passenger')}</option>
+                  </select>
+                </label>
+                {perfil === 'CIA' && (
+                  <label>{tr('Companhia', 'Airline')}
+                    <input
+                      value={companhia}
+                      onChange={(e) => setCompanhia(e.target.value)}
+                      placeholder={tr('Nome da companhia', 'Airline name')}
+                    />
+                  </label>
+                )}
+                {erro && <span className="error">{erro}</span>}
+                <button className="btn primary" type="submit">{tr('Cadastrar', 'Register')}</button>
+                <button className="btn ghost" type="button" onClick={() => setModoAuth('login')}>{tr('Voltar', 'Back')}</button>
+              </form>
+            )}
+            <div className="login-foot-note">
+              <span>{tr('Acesso restrito a usuários autorizados', 'Restricted access to authorized users')}</span>
+            </div>
+          </div>
+          {renderCookieBanner()}
+        </div>
+      </div>
+    );
+  };
 
   const [activeSection, setActiveSection] = useState('dashboard');
   const [privacyMode, setPrivacyMode] = useState(false);
   const [buscaGlobal, setBuscaGlobal] = useState('');
   const [mapFlights, setMapFlights] = useState(MAP_FLIGHTS);
   const [ambientFlights, setAmbientFlights] = useState([]);
+  const [liveMeta, setLiveMeta] = useState({ source: 'local', fallback: 'local' });
+  const [liveError, setLiveError] = useState('');
   const [selectedFlightId, setSelectedFlightId] = useState(null);
   const [selectedFlightData, setSelectedFlightData] = useState(null);
+  const [flightWeather, setFlightWeather] = useState({ origin: null, dest: null });
+  const [flightHistory, setFlightHistory] = useState(null);
+  const weatherCacheRef = useRef(new Map());
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [mapBusca, setMapBusca] = useState('');
   const [mapStatus, setMapStatus] = useState('todos');
   const [mapEscopo, setMapEscopo] = useState('todos');
+  const [liveEnabled, setLiveEnabled] = useState(() => localStorage.getItem('live_mode') !== '0');
+  const [mapResetKey, setMapResetKey] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState(() => {
@@ -911,7 +1390,7 @@ function probabilityMeta(percent) {
   const [notifSistema, setNotifSistema] = useState(true);
   const [delayAlertMessage, setDelayAlertMessage] = useState('');
   const [probHover, setProbHover] = useState(null);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => getRememberMeDefault());
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [clockNow, setClockNow] = useState(new Date());
   const [auditTrail, setAuditTrail] = useState(() => {
@@ -945,8 +1424,14 @@ function probabilityMeta(percent) {
     [mapFlights, selectedFlightId]
   );
   const displayedFlight = selectedFlightData || selectedFlight;
+  const displayedDistanceKm = useMemo(() => {
+    if (!displayedFlight?.from || !displayedFlight?.to) return null;
+    const { from, to } = displayedFlight;
+    if (!Number.isFinite(from?.lat) || !Number.isFinite(from?.lng) || !Number.isFinite(to?.lat) || !Number.isFinite(to?.lng)) return null;
+    return haversineKm(from.lat, from.lng, to.lat, to.lng);
+  }, [displayedFlight]);
   const mapFiltrados = useMemo(() => {
-    const buscaMapa = mapBusca.toLowerCase().trim();
+    const buscaMapa = (mapBusca || buscaGlobal).toLowerCase().trim();
     return mapFlights.filter((f) => {
       if (mapStatus !== 'todos' && f.risco !== mapStatus) return false;
       const isNacional = String(f.regiao || '').toLowerCase().includes('nacional');
@@ -958,7 +1443,7 @@ function probabilityMeta(percent) {
         .toLowerCase();
       return texto.includes(buscaMapa);
     });
-  }, [mapFlights, mapBusca, mapStatus, mapEscopo]);
+  }, [mapFlights, mapBusca, buscaGlobal, mapStatus, mapEscopo]);
 
   const voosComBuscaGlobal = useMemo(() => {
     const q = buscaGlobal.toLowerCase().trim();
@@ -973,6 +1458,7 @@ function probabilityMeta(percent) {
 
   const visiveis = useMemo(() => voosComBuscaGlobal.map(mapFlightToTableRow), [voosComBuscaGlobal]);
   const aeronavesVisiveis = useMemo(() => voosComBuscaGlobal.map(mapFlightToAircraftCard), [voosComBuscaGlobal]);
+  const voosBase = voosComBuscaGlobal;
   const voosOrdenados = useMemo(() => {
     const base = [...visiveis];
     base.sort((a, b) => compareBySort(a, b, vooSort.field, vooSort.direction));
@@ -986,10 +1472,10 @@ function probabilityMeta(percent) {
   }, [voosOrdenados, vooPage, vooPageSize, totalVooPages]);
 
   const mapResumo = useMemo(() => ({
-    operando: mapFlights.filter((f) => f.risco === 'operando').length,
-    atencao: mapFlights.filter((f) => f.risco === 'atencao').length,
-    atraso: mapFlights.filter((f) => f.risco === 'atraso').length,
-  }), [mapFlights]);
+    operando: voosBase.filter((f) => f.risco === 'operando').length,
+    atencao: voosBase.filter((f) => f.risco === 'atencao').length,
+    atraso: voosBase.filter((f) => f.risco === 'atraso').length,
+  }), [voosBase]);
   const airportCatalog = useMemo(() => {
     const m = new Map();
     MAP_AIRPORT_POINTS.forEach((a) => m.set(String(a.code).toUpperCase(), a));
@@ -998,7 +1484,7 @@ function probabilityMeta(percent) {
 
   const forecastProbabilidade = useMemo(() => {
     const baseAtraso = mapResumo.atraso * 85 + mapResumo.atencao * 55 + mapResumo.operando * 22;
-    const total = Math.max(1, mapFlights.length);
+    const total = Math.max(1, voosBase.length);
     const base = Math.round(baseAtraso / total);
     const horaBase = new Date().getHours();
     const offsets = [0, 1, 2, 3];
@@ -1007,7 +1493,7 @@ function probabilityMeta(percent) {
       const percent = Math.max(8, Math.min(95, base + offset * 7));
       return { hora: `${hora}:00`, percent, ...probabilityMeta(percent) };
     });
-  }, [mapFlights.length, mapResumo]);
+  }, [voosBase.length, mapResumo]);
 
   const picoForecast = useMemo(
     () => forecastProbabilidade.reduce((max, item) => (item.percent > max.percent ? item : max), forecastProbabilidade[0]),
@@ -1031,6 +1517,126 @@ function probabilityMeta(percent) {
     setActiveSection(section);
     setMenuOpen(false);
   }
+
+  useEffect(() => {
+    persistSessionFlag(!!token, rememberMe);
+  }, [token, rememberMe]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const bootstrapSession = async () => {
+      try {
+        const meResp = await api.get('/auth/me');
+        if (!cancelled) {
+          setMe(meResp.data);
+          setToken(true);
+        }
+      } catch (_) {
+        if (!cancelled) {
+          setMe(null);
+          setToken(false);
+        }
+      }
+    };
+    bootstrapSession();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!displayedFlight) {
+      setFlightWeather({ origin: null, dest: null });
+      setFlightHistory(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchWeather = async (point, labelKey) => {
+      if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return null;
+      const key = `${point.lat.toFixed(2)}:${point.lng.toFixed(2)}`;
+      if (weatherCacheRef.current.has(key)) return weatherCacheRef.current.get(key);
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lng}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('weather_fail');
+        const data = await resp.json();
+        const current = data?.current || {};
+        const payload = {
+          temp: Number.isFinite(current.temperature_2m) ? `${Math.round(current.temperature_2m)}°C` : '-',
+          wind: Number.isFinite(current.wind_speed_10m) ? `${Math.round(current.wind_speed_10m)} km/h` : '-',
+          code: Number(current.weather_code),
+          label: weatherLabelFromCode(current.weather_code),
+          when: data?.current?.time || null,
+          name: labelKey,
+        };
+        weatherCacheRef.current.set(key, payload);
+        return payload;
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const fetchHistory = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (displayedFlight?.cia && displayedFlight.cia !== 'N/A') params.set('companhia', displayedFlight.cia);
+        if (displayedFlight?.from?.city) params.set('origem', displayedFlight.from.city);
+        if (displayedFlight?.to?.city) params.set('destino', displayedFlight.to.city);
+        params.set('dias', '90');
+        const resp = await api.get(`/voos/historico?${params.toString()}`);
+        return resp?.data || null;
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const run = async () => {
+      const [originWeather, destWeather, history] = await Promise.all([
+        fetchWeather(displayedFlight.from, displayedFlight.from?.code),
+        fetchWeather(displayedFlight.to, displayedFlight.to?.code),
+        fetchHistory(),
+      ]);
+      if (cancelled) return;
+      setFlightWeather({ origin: originWeather, dest: destWeather });
+      setFlightHistory(history);
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [displayedFlight]);
+
+  useEffect(() => {
+    if (!token || me) return;
+    let cancelled = false;
+
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const bootstrapMe = async () => {
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          const meResp = await api.get('/auth/me');
+          if (!cancelled) setMe(meResp.data);
+          return;
+        } catch (err) {
+          if (cancelled) return;
+          const status = err?.response?.status;
+          if (status === 401 || status === 403) {
+            setToken(false);
+            setMe(null);
+            return;
+          }
+          if (attempt < 3) await delay(650);
+        }
+      }
+    };
+
+    bootstrapMe();
+    return () => { cancelled = true; };
+  }, [token, me]);
+
+  useEffect(() => {
+    if (!buscaGlobal) return;
+    setVooPage(1);
+  }, [buscaGlobal]);
 
   const tr = (pt, en) => (idioma === 'en' ? en : pt);
   const weatherInfo = useMemo(() => {
@@ -1167,6 +1773,10 @@ function probabilityMeta(percent) {
   }, [delayAlertThreshold]);
 
   useEffect(() => {
+    localStorage.setItem('live_mode', liveEnabled ? '1' : '0');
+  }, [liveEnabled]);
+
+  useEffect(() => {
     localStorage.setItem('audit_trail', JSON.stringify(auditTrail));
   }, [auditTrail]);
 
@@ -1193,6 +1803,14 @@ function probabilityMeta(percent) {
     const timer = setInterval(() => setClockNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (activeSection !== 'dashboard' || privacyMode) return undefined;
+    const timer = setInterval(() => {
+      setMapFlights((prev) => prev.map(advanceFlightProgress));
+    }, MAP_TICK_MS);
+    return () => clearInterval(timer);
+  }, [activeSection, privacyMode]);
 
   useEffect(() => {
     if (!delayAlertEnabled || !picoForecast) return;
@@ -1309,22 +1927,57 @@ function probabilityMeta(percent) {
   }, [activeSection, token]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setMapFlights((prev) => {
-        const takenIds = new Set(prev.map((f) => f.id));
-        return prev.map((f) => {
-          const progress = f.progress + f.speed * MAP_TICK_SECONDS;
-          if (progress <= 1) return { ...f, progress };
-          takenIds.delete(f.id);
-          const next = buildLiveFlight(MAP_AIRPORT_POINTS, takenIds);
-          takenIds.add(next.id);
-          return next;
-        });
-      });
-    }, MAP_TICK_MS);
+    if (!token) {
+      setLiveMeta({ source: 'local', fallback: 'local' });
+      setLiveError('');
+    }
 
-    return () => clearInterval(timer);
-  }, []);
+    let cancelled = false;
+    let timer = null;
+
+    const carregarVoosAoVivo = async () => {
+      if (!liveEnabled) {
+        setLiveMeta({ source: 'local', fallback: 'local' });
+        setLiveError('');
+        setMapFlights(MAP_FLIGHTS);
+        return;
+      }
+      try {
+        const resp = await api.get(`/voos/live?source=all&limit=${LIVE_FLIGHTS_LIMIT}`);
+        const items = Array.isArray(resp?.data?.items) ? resp.data.items : [];
+        const mapped = items
+          .map((item) => mapLiveFlightToMapFlight(item, airportCatalog))
+          .filter(Boolean);
+
+        if (cancelled) return;
+        if (mapped.length) {
+          setMapFlights(mapped);
+          setSelectedFlightData(null);
+        }
+        setLiveMeta(resp?.data?.meta || { source: 'local', fallback: 'local' });
+        setLiveError('');
+      } catch (err) {
+        if (cancelled) return;
+        const message = err?.response?.data?.error || err?.message || 'Erro ao carregar voos ao vivo';
+        setLiveError(message);
+        console.warn('[liveFlights] frontend fallback para dados atuais:', message);
+      }
+    };
+
+    carregarVoosAoVivo();
+    timer = setInterval(carregarVoosAoVivo, LIVE_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [token, airportCatalog, liveEnabled]);
+
+  useEffect(() => {
+    if (!token) return;
+    if (!loginOpen) return;
+    setLoginOpen(false);
+    setActiveSection('dashboard');
+  }, [token, loginOpen]);
   useEffect(() => {
     if (activeSection !== 'dashboard' || privacyMode) return;
 
@@ -1413,7 +2066,21 @@ function probabilityMeta(percent) {
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [activeSection, privacyMode]);
+  }, [activeSection, privacyMode, mapResetKey]);
+
+  useEffect(() => {
+    const ctx = leafletRef.current;
+    if (!ctx?.map) return;
+    ctx.markers?.forEach((m) => m.remove());
+    ctx.routes?.forEach((r) => r.remove());
+    ctx.markers?.clear?.();
+    ctx.routes?.clear?.();
+    ctx.map.remove();
+    ctx.map = null;
+    ctx.base = null;
+    ctx.airportsLayer = null;
+    setMapResetKey((v) => v + 1);
+  }, [liveEnabled]);
 
   useEffect(() => {
     if (activeSection === 'dashboard' && !privacyMode) return;
@@ -1449,7 +2116,9 @@ function probabilityMeta(percent) {
     const visible = new Set(mapFiltrados.map((f) => f.id));
     mapFiltrados.forEach((f) => {
       const [start, end] = routeLatLngs(f.from, f.to);
-      const current = pointToLatLng(interpolatePoint(f.from, f.to, f.progress));
+      const current = (Number.isFinite(f.lat) && Number.isFinite(f.lng))
+        ? [f.lat, f.lng]
+        : pointToLatLng(interpolatePoint(f.from, f.to, f.progress));
       const selected = selectedFlightId === f.id;
       const angle = headingDegrees(f.from, f.to);
       const color = f.risco === 'atraso' ? '#ff8f8f' : f.risco === 'atencao' ? '#ffd45f' : '#7bb9ff';
@@ -1492,12 +2161,15 @@ function probabilityMeta(percent) {
           const progressLabel = tr('Progresso', 'Progress');
           const loadingRiskLabel = tr('Carregando risco...', 'Loading risk...');
           const delayProbabilityLabel = tr('Probabilidade de atraso', 'Delay probability');
+          const sourceLabel = tr('Fonte', 'Source');
+          const sourceValue = liveSourceBadgeLabel(f.source || liveMeta?.source, tr);
           const initialHtml = `
             <div style="min-width:200px">
               <strong>${f.id}</strong><br/>
               ${f.cia} · ${f.from.code} → ${f.to.code}<br/>
               <small>${f.aeronave || ''}</small><br/>
               <div>${gateLabel}: ${f.portao || '-'} · ${speedLabel}: ${f.velocidade || '-'}</div>
+              <div>${sourceLabel}: ${sourceValue}</div>
               <div style="margin-top:6px">${progressLabel}: ${Math.round(f.progress * 100)}%</div>
               <div class="popup-risco">${loadingRiskLabel}</div>
             </div>`;
@@ -1518,6 +2190,7 @@ function probabilityMeta(percent) {
                   ${f.cia} · ${f.from.code} → ${f.to.code}<br/>
                   <small>${f.aeronave || ''}</small><br/>
                   <div>${gateLabel}: ${f.portao || '-'} · ${speedLabel}: ${f.velocidade || '-'}</div>
+                  <div>${sourceLabel}: ${sourceValue}</div>
                   <div style="margin-top:6px">${delayProbabilityLabel}: <strong>${risco.percent ?? '-'}%</strong>
                     ${risco.label ? `<span> — ${risco.label}</span>` : ''}
                   </div>
@@ -1562,7 +2235,7 @@ function probabilityMeta(percent) {
         ctx.routes.delete(id);
       }
     });
-  }, [mapFiltrados, selectedFlightId, activeSection, privacyMode, idioma]);
+  }, [mapFiltrados, selectedFlightId, activeSection, privacyMode, idioma, liveMeta?.source]);
 
   
 
@@ -1582,9 +2255,19 @@ function probabilityMeta(percent) {
     e.preventDefault();
     setErro('');
     try {
-      const resp = await api.post('/auth/login', { email, senha });
-      setToken(resp.data.token);
-      setAuthToken(resp.data.token);
+      let resp = null;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          resp = await api.post('/auth/login', { email, senha, rememberMe: !!rememberMe });
+          break;
+        } catch (loginErr) {
+          if (loginErr?.response) throw loginErr;
+          if (attempt === 3) throw loginErr;
+          await new Promise((resolve) => setTimeout(resolve, 550));
+        }
+      }
+      if (!resp) throw new Error('login_failed');
+      setToken(true);
       const meResp = await api.get('/auth/me');
       setMe(meResp.data);
       addAudit('Login realizado', 'User login', meResp?.data?.email || email, 'ok');
@@ -1610,11 +2293,15 @@ function probabilityMeta(percent) {
     }
   }
 
-  function sair() {
+  async function sair() {
     addAudit('Logout realizado', 'User logout', me?.email || '-', 'info');
-    setToken(null);
+    try {
+      await api.post('/auth/logout');
+    } catch (_) {
+      // ignore
+    }
+    setToken(false);
     setMe(null);
-    setAuthToken(null);
     setSenha('');
     setSenhaAtual('');
     setNovaSenha('');
@@ -1878,7 +2565,7 @@ function probabilityMeta(percent) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.setTextColor(230, 241, 255);
-    doc.text(idioma === 'en' ? 'SkyTrak - Operational Report' : 'SkyTrak - Relatório Operacional', margin + 16, margin + 28);
+    doc.text(idioma === 'en' ? 'SkyTrak AirTraffic Control - Operational Report' : 'SkyTrak AirTraffic Control - Relatório Operacional', margin + 16, margin + 28);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10.5);
     doc.setTextColor(153, 198, 255);
@@ -1944,7 +2631,7 @@ function probabilityMeta(percent) {
     const now = new Date();
     const dataBr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
     const hhmm = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
-    const atrasoPct = Math.round((mapResumo.atraso / Math.max(1, mapFlights.length)) * 100);
+    const atrasoPct = Math.round((mapResumo.atraso / Math.max(1, voosBase.length)) * 100);
     const nome = `${tr('Relatório Operacional', 'Operational Report')} ${dataBr} ${hhmm}`;
     const novo = {
       nome,
@@ -2011,6 +2698,20 @@ function probabilityMeta(percent) {
       return;
     }
 
+    const portaoNovo = String(novoVoo.portao || '').toUpperCase().trim();
+    const horarioNovo = String(novoVoo.horarioPartida || '').trim();
+    if (portaoNovo && horarioNovo) {
+      const conflito = mapFlights.some((f) => {
+        const portaoAtual = String(f.portao || '').toUpperCase().trim();
+        const horarioAtual = String(f.from?.time || f.horario || '').trim();
+        return portaoAtual && horarioAtual && portaoAtual === portaoNovo && horarioAtual === horarioNovo;
+      });
+      if (conflito) {
+        setVooFeedback(tr('Já existe um voo no mesmo horário e portão.', 'There is already a flight at the same time and gate.'));
+        return;
+      }
+    }
+
     const from = criarPontoAeroporto(novoVoo.origem, novoVoo.horarioPartida);
     const to = criarPontoAeroporto(novoVoo.destino, novoVoo.horarioChegada);
     if (!from || !to) {
@@ -2057,107 +2758,9 @@ function probabilityMeta(percent) {
     });
   }
 
-  if (!token) {
-    const bloqueadoPorCookie = cookieStatus !== 'aceito' && cookieStatus !== 'recusado';
-    return (
-      <div className="auth-wrap">
-          <div className="company-corner">SkyTrak Air Traffic Control</div>
-          <div className="auth-globe" aria-hidden="true">
-            <div className="auth-globe-core" />
-          </div>
-          <div className={`auth-card ${bloqueadoPorCookie ? 'blocked' : ''}`}>
-            <div className="login-hero">
-              <span className="login-badge">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M2.2 12.8 10.5 11 19 2.5c.8-.8 2-.8 2.8 0 .8.8.8 2 0 2.8L13.3 14l-1.8 8.3-2.3-2.3-3.3.7.7-3.3-2.4-2.4Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <img
-                className="auth-logo"
-                src="/skytrak-logo-transparent.png"
-                alt="SkyTrak"
-                onError={(e) => {
-                  const cur = e.currentTarget;
-                  if (!cur.src.includes('skytrak-logo.png')) cur.src = '/skytrak-logo.png';
-                }}
-              />
-              <p>{tr('Sistema de Gestão Aeroportuária', 'Airport Management System')}</p>
-            </div>
-          {modoAuth === 'login' ? (
-            <form onSubmit={handleLogin} className="auth-form">
-              <label>{tr('Email', 'Email')}<input disabled={bloqueadoPorCookie} placeholder={tr('seu@email.com', 'your@email.com')} value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-              <label>{tr('Senha', 'Password')}
-                <div className="password-wrap">
-                  <input disabled={bloqueadoPorCookie} type={showLoginPassword ? 'text' : 'password'} value={senha} onChange={(e) => setSenha(e.target.value)} />
-                  <button type="button" className="toggle-pass" onClick={() => setShowLoginPassword((v) => !v)} aria-label={showLoginPassword ? tr('Ocultar senha', 'Hide password') : tr('Mostrar senha', 'Show password')}>
-                    {showLoginPassword ? (
-                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M3 4.5 21 19.5M9.9 9.4A3.6 3.6 0 0 1 12 8.8a3.8 3.8 0 0 1 3.8 3.8c0 .7-.2 1.4-.6 2M6.2 7.2A16.3 16.3 0 0 1 12 6c4.8 0 8.4 2.8 9.8 6.6a12.6 12.6 0 0 1-2.4 3.7M4.2 12.6C5.6 8.8 9.2 6 14 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                      </svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M2.4 12C4 8.4 7.7 6 12 6s8 2.4 9.6 6c-1.6 3.6-5.3 6-9.6 6s-8-2.4-9.6-6Z" stroke="currentColor" strokeWidth="1.6" />
-                        <circle cx="12" cy="12" r="2.8" stroke="currentColor" strokeWidth="1.6" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </label>
-              <div className="login-row">
-                <label className="remember-check"><input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} /> {tr('Lembrar-me', 'Remember me')}</label>
-                <button type="button" className="btn linklike" onClick={() => setErro(tr('Entre em contato com o administrador para redefinir senha.', 'Contact the administrator to reset password.'))}>{tr('Esqueci a senha', 'Forgot password')}</button>
-              </div>
-              {erro && <span className="error">{erro}</span>}
-              <button disabled={bloqueadoPorCookie} className="btn primary" type="submit">{tr('Entrar', 'Sign In')}</button>
-              <button disabled={bloqueadoPorCookie} className="btn ghost" type="button" onClick={() => setModoAuth('register')}>{tr('Criar conta', 'Create account')}</button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} className="auth-form">
-              <label>{tr('Nome', 'Name')}<input disabled={bloqueadoPorCookie} value={nome} onChange={(e) => setNome(e.target.value)} /></label>
-              <label>{tr('Email', 'Email')}<input disabled={bloqueadoPorCookie} value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-              <label>{tr('Senha', 'Password')}<input disabled={bloqueadoPorCookie} type="password" value={senha} onChange={(e) => setSenha(e.target.value)} /></label>
-                <label>{tr('Perfil', 'Profile')}
-                  <select disabled={bloqueadoPorCookie} value={perfil} onChange={(e) => setPerfil(e.target.value)}>
-                    <option value="OPERADOR">{tr('Operador', 'Operator')}</option>
-                    <option value="ADMIN">{tr('Administrador', 'Administrator')}</option>
-                    <option value="CIA">{tr('Companhia', 'Airline')}</option>
-                    <option value="PASSAGEIRO">{tr('Passageiro', 'Passenger')}</option>
-                  </select>
-                </label>
-                {perfil === 'CIA' && (
-                  <label>{tr('Companhia', 'Airline')}
-                    <input
-                      disabled={bloqueadoPorCookie}
-                      value={companhia}
-                      onChange={(e) => setCompanhia(e.target.value)}
-                      placeholder={tr('Nome da companhia', 'Airline name')}
-                    />
-                  </label>
-                )}
-              {erro && <span className="error">{erro}</span>}
-              <button disabled={bloqueadoPorCookie} className="btn primary" type="submit">{tr('Cadastrar', 'Register')}</button>
-              <button disabled={bloqueadoPorCookie} className="btn ghost" type="button" onClick={() => setModoAuth('login')}>{tr('Voltar', 'Back')}</button>
-            </form>
-          )}
-          <div className="login-foot-note">
-            <span>{tr('Acesso restrito a usuários autorizados', 'Restricted access to authorized users')}</span>
-          </div>
-        </div>
-        {bloqueadoPorCookie && (
-          <div className="cookie-banner">
-            <span>{tr('Aceite ou recuse cookies para usar o sistema.', 'Accept or reject cookies to use the system.')}</span>
-            <div>
-              <button className="btn primary" onClick={() => { setCookieStatus('aceito'); localStorage.setItem('cookie_status', 'aceito'); }}>{tr('Aceitar', 'Accept')}</button>
-              <button className="btn ghost" onClick={() => { setCookieStatus('recusado'); localStorage.setItem('cookie_status', 'recusado'); }}>{tr('Recusar', 'Reject')}</button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className={`layout ${tema === 'claro' ? 'theme-light' : ''} ${densidade === 'compacta' ? 'density-compact' : ''}`}>
+      {renderCookieBanner()}
       <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
         <button className={`nav-btn ${activeSection === 'dashboard' ? 'active' : ''}`} onClick={() => goSection('dashboard')}>
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 10h18v6H3z" stroke="#9fbef8" strokeWidth="1.2" fill="#0d2a4a"/></svg>{tr('Dashboard', 'Dashboard')}
@@ -2188,7 +2791,7 @@ function probabilityMeta(percent) {
             <img
               className="app-logo"
               src="/skytrak-logo-transparent.png"
-              alt="SkyTrak"
+              alt="SkyTrak AirTraffic Control"
               onError={(e) => {
                 const cur = e.currentTarget;
                 if (!cur.src.includes('skytrak-logo.png')) cur.src = '/skytrak-logo.png';
@@ -2230,7 +2833,15 @@ function probabilityMeta(percent) {
             <button className={`privacy-toggle ${privacyMode ? 'on' : ''}`} onClick={() => setPrivacyMode((v) => !v)}>
               {tr('Modo Privacidade', 'Privacy Mode')} {privacyMode ? 'ON' : 'OFF'}
             </button>
-            <button className="btn ghost" onClick={sair}>{tr('Sair', 'Logout')}</button>
+            {token ? (
+              <button className="btn ghost" onClick={sair}>{tr('Sair', 'Logout')}</button>
+            ) : (
+              <button className="btn ghost icon-btn" onClick={() => setLoginOpen(true)} aria-label={tr('Entrar', 'Sign In')} title={tr('Entrar', 'Sign In')}>
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M4 12h9M10 7l5 5-5 5M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
           </div>
         </header>
         <div className="sr-only" aria-live="polite">
@@ -2269,6 +2880,7 @@ function probabilityMeta(percent) {
             </form>
           </aside>
         )}
+        {renderAuthModal()}
 
         {activeSection === 'dashboard' && (
           <section className="section">
@@ -2286,6 +2898,7 @@ function probabilityMeta(percent) {
                 <div>
                   <h3>{tr('Mapa de rotas ao vivo', 'Live route map')}</h3>
                   <span>{mapFiltrados.length} {tr('voos visíveis', 'visible flights')}</span>
+                  {liveError ? <small className="live-error">{liveError}</small> : null}
                 </div>
                 <button className="btn ghost small" onClick={() => setMapFullscreen((v) => !v)}>
                   {mapFullscreen ? tr('Minimizar', 'Minimize') : tr('Maximizar', 'Maximize')}
@@ -2298,7 +2911,18 @@ function probabilityMeta(percent) {
                 <div className="map-stage">
                   <div className="map-toolbar">
                     <div className="map-toolbar-left">
-                      <span className="map-badge">Skyline Live</span>
+                      <span className="map-badge">Air Traffic Control</span>
+                      <button
+                        type="button"
+                        className={`live-toggle ${liveEnabled ? 'on' : 'off'}`}
+                        onClick={() => setLiveEnabled((v) => !v)}
+                        title={liveEnabled ? tr('Dados ao vivo: ligados', 'Live data: on') : tr('Dados ao vivo: desligados', 'Live data: off')}
+                      >
+                        {liveEnabled ? tr('Ao vivo', 'Live') : tr('Local', 'Local')}
+                      </button>
+                      <span className={`map-source-badge ${String(liveMeta?.source || 'local')}`}>
+                        {liveSourceBadgeLabel(liveMeta?.source, tr)}
+                      </span>
                       <div className="zoom-controls">
                         <button type="button" className="zoom-btn" onClick={() => leafletRef.current.map?.zoomIn()}>+</button>
                         <button type="button" className="zoom-btn" onClick={() => leafletRef.current.map?.zoomOut()}>−</button>
@@ -2879,14 +3503,9 @@ function probabilityMeta(percent) {
               <div>
                 <strong>{displayedFlight.from.code}</strong>
                 <span>{displayedFlight.from.city}</span>
-                <b>{displayedFlight.from.time}</b>
               </div>
               <div className="progress-block">
                   <div className="progress-top">
-                    <div className="airport-left">
-                      <div className="time">{displayedFlight.from.time}</div>
-                      <div className="label">{tr('Partida', 'Departure')}</div>
-                    </div>
                     <div className="progress-center">
                       <div className="plane-icon">
                         <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
@@ -2896,6 +3515,23 @@ function probabilityMeta(percent) {
                       <div className="progress-line">
                         <i style={{ width: `${Math.round(displayedFlight.progress * 100)}%` }} />
                       </div>
+                      <div className="central-time">
+                        <div className="central-time-block">
+                          <span className="central-time-label">{tr('Partida', 'Departure')}</span>
+                          <div className="time-row">
+                            <strong>{displayedFlight.from.time}</strong>
+                            {displayedFlight.from.timeEstimated ? <span className="estimate-badge">{tr('Estimado', 'Estimated')}</span> : null}
+                          </div>
+                        </div>
+                        <div className="central-time-arrow">→</div>
+                        <div className="central-time-block">
+                          <span className="central-time-label">{tr('Chegada', 'Arrival')}</span>
+                          <div className="time-row">
+                            <strong>{displayedFlight.to.time}</strong>
+                            {displayedFlight.to.timeEstimated ? <span className="estimate-badge">{tr('Estimado', 'Estimated')}</span> : null}
+                          </div>
+                        </div>
+                      </div>
                       {displayedFlight?.riscoLoading ? (
                         <div className="probability"><span className="spinner" /> {tr('Carregando...', 'Loading...')}</div>
                       ) : (
@@ -2903,12 +3539,11 @@ function probabilityMeta(percent) {
                           {tr('Chance de atraso', 'Delay chance')}: <strong>{selectedDelayChance?.percent ?? 0}%</strong>
                           {selectedDelayChance ? <span className={`prob-label ${selectedDelayChance.tone}`}> · {trProbability(selectedDelayChance.label)}</span> : null}
                           {displayedFlight?.riscoInfo?.label ? <span className="prob-label"> — {displayedFlight.riscoInfo.label}</span> : null}
+                          {displayedFlight?.riscoInfo?.explicacao ? (
+                            <div className="risk-explain">{displayedFlight.riscoInfo.explicacao}</div>
+                          ) : null}
                         </div>
                       )}
-                    </div>
-                    <div className="airport-right">
-                      <div className="time">{displayedFlight.to.time}</div>
-                      <div className="label">{tr('Chegada', 'Arrival')}</div>
                     </div>
                   </div>
                     <small className="progress-percent">{Math.round(displayedFlight.progress * 100)}% {tr('completo', 'complete')}</small>
@@ -2916,31 +3551,10 @@ function probabilityMeta(percent) {
               <div>
                   <strong>{displayedFlight.to.code}</strong>
                   <span>{displayedFlight.to.city}</span>
-                  <b>{displayedFlight.to.time}</b>
               </div>
             </div>
 
             <div className="flight-grid">
-                  <article className="stat-card">
-                    <span className="stat-icon">
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2v4M12 18v4M4 12h4M16 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3" stroke="#9fbef8" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </span>
-                    <span>{tr('Altitude', 'Altitude')}</span>
-                    <strong>{displayedFlight.altitude}</strong>
-                  </article>
-
-                  <article className="stat-card">
-                    <span className="stat-icon">
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M3 13h4l3-8 4 16 3-10 4-1" stroke="#9fbef8" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </span>
-                    <span>{tr('Velocidade', 'Speed')}</span>
-                    <strong>{displayedFlight.velocidade}</strong>
-                  </article>
-
                   <article className="stat-card">
                     <span className="stat-icon">
                       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2960,10 +3574,109 @@ function probabilityMeta(percent) {
                     </span>
                     <span>{tr('Portão', 'Gate')}</span>
                     <strong>{displayedFlight.portao}</strong>
+                    {displayedFlight?.source !== 'local' ? <em className="live-badge">{tr('Ao vivo', 'Live')}</em> : null}
+                  </article>
+                  <article className="stat-card">
+                    <span className="stat-icon">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 6h16v12H4z" stroke="#9fbef8" strokeWidth="1.2" />
+                        <path d="M7 10h10M7 14h6" stroke="#9fbef8" strokeWidth="1.2" strokeLinecap="round"/>
+                      </svg>
+                    </span>
+                    <span>{tr('Terminal', 'Terminal')}</span>
+                    <strong>{displayedFlight.terminal || '-'}</strong>
+                    {displayedFlight?.source !== 'local' ? <em className="live-badge">{tr('Ao vivo', 'Live')}</em> : null}
+                  </article>
+                  <article className="stat-card">
+                    <span className="stat-icon">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 12h12" stroke="#9fbef8" strokeWidth="1.2" strokeLinecap="round"/>
+                        <path d="M10 8l6 4-6 4" stroke="#9fbef8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                    <span>{tr('Velocidade', 'Speed')}</span>
+                    <strong>{displayedFlight.velocidade}</strong>
+                  </article>
+                  <article className="stat-card">
+                    <span className="stat-icon">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 3v18" stroke="#9fbef8" strokeWidth="1.2" strokeLinecap="round"/>
+                        <path d="M8 7h8M8 12h8M8 17h8" stroke="#9fbef8" strokeWidth="1.2" strokeLinecap="round"/>
+                      </svg>
+                    </span>
+                    <span>{tr('Altitude', 'Altitude')}</span>
+                    <strong>{displayedFlight.altitude}</strong>
                   </article>
             </div>
 
-              <div className="flight-status-live"><span className="status-dot" /> {tr('Voo Ativo - Em Rota', 'Active Flight - En Route')}</div>
+            <div className="flight-meta">
+              <div className="flight-meta-row">
+                <span>{tr('Status', 'Status')}</span>
+                <strong>{displayedFlight.statusRaw || mapFlightStatus(displayedFlight.risco)}</strong>
+              </div>
+              <div className="flight-meta-row">
+                <span>{tr('Região', 'Region')}</span>
+                <strong>{displayedFlight.regiao || '-'}</strong>
+              </div>
+              <div className="flight-meta-row">
+                <span>{tr('Rumo', 'Heading')}</span>
+                <strong>{formatHeading(displayedFlight.heading)}</strong>
+              </div>
+              <div className="flight-meta-row">
+                <span>{tr('Posição', 'Position')}</span>
+                <strong>{formatCoord(displayedFlight.lat, true)} | {formatCoord(displayedFlight.lng, false)}</strong>
+              </div>
+              <div className="flight-meta-row">
+                <span>{tr('Distância', 'Distance')}</span>
+                <strong>{formatDistanceKm(displayedDistanceKm)}</strong>
+              </div>
+              <div className="flight-meta-row">
+                <span>{tr('Atualizado', 'Updated')}</span>
+                <strong>{displayedFlight.atualizado || '--:-- UTC'}</strong>
+              </div>
+            </div>
+
+            <div className="flight-extras">
+              <div className="flight-extras-card">
+                <h4>{tr('Clima na origem', 'Origin weather')} {displayedFlight?.source !== 'local' ? <span className="live-badge inline">{tr('Ao vivo', 'Live')}</span> : null}</h4>
+                {flightWeather.origin ? (
+                  <>
+                    <p><strong>{flightWeather.origin.name}</strong> · {flightWeather.origin.label}</p>
+                    <p>{flightWeather.origin.temp} · {flightWeather.origin.wind}</p>
+                  </>
+                ) : (
+                  <p>{tr('Indisponível', 'Unavailable')}</p>
+                )}
+              </div>
+              <div className="flight-extras-card">
+                <h4>{tr('Clima no destino', 'Destination weather')} {displayedFlight?.source !== 'local' ? <span className="live-badge inline">{tr('Ao vivo', 'Live')}</span> : null}</h4>
+                {flightWeather.dest ? (
+                  <>
+                    <p><strong>{flightWeather.dest.name}</strong> · {flightWeather.dest.label}</p>
+                    <p>{flightWeather.dest.temp} · {flightWeather.dest.wind}</p>
+                  </>
+                ) : (
+                  <p>{tr('Indisponível', 'Unavailable')}</p>
+                )}
+              </div>
+              <div className="flight-extras-card">
+                <h4>{tr('Histórico 90 dias', '90-day history')}</h4>
+                {flightHistory ? (
+                  <>
+                    <p>{tr('Total', 'Total')}: <strong>{flightHistory.total}</strong></p>
+                    <p>{tr('Atrasos', 'Delays')}: <strong>{flightHistory.atrasados}</strong> · {tr('Taxa', 'Rate')}: <strong>{flightHistory.taxa_atraso}%</strong></p>
+                    <p>{tr('Cancelamentos', 'Cancellations')}: <strong>{flightHistory.cancelados}</strong> · {tr('Taxa', 'Rate')}: <strong>{flightHistory.taxa_cancelamento}%</strong></p>
+                  </>
+                ) : (
+                  <p>{tr('Indisponível', 'Unavailable')}</p>
+                )}
+              </div>
+            </div>
+
+              <div className="flight-status-live">
+                <span className="status-dot" /> {tr('Voo Ativo - Em Rota', 'Active Flight - En Route')}
+                <span className="chip info">{tr('Fonte', 'Source')}: {liveSourceBadgeLabel(displayedFlight?.source || liveMeta?.source, tr)}</span>
+              </div>
           </div>
         </div>
       )}

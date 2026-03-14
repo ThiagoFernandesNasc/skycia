@@ -1,0 +1,6 @@
+.env
+projetoti/.env
+frontend/.env
+node_modules/
+projetoti/opensky_debug.log
+api_3001.log

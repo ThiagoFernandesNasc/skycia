@@ -125,6 +125,47 @@ const openApiSpec = {
           preco_medio: { type: 'string', example: '450.00' },
         },
       },
+      LiveFlight: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'LA1234' },
+          callsign: { type: 'string', nullable: true, example: 'LA1234' },
+          airline: { type: 'string', nullable: true, example: 'LATAM' },
+          aircraft: { type: 'string', nullable: true, example: 'Airbus A320' },
+          origin: { type: 'string', nullable: true, example: 'GRU' },
+          destination: { type: 'string', nullable: true, example: 'BSB' },
+          lat: { type: 'number', nullable: true, example: -19.9234 },
+          lng: { type: 'number', nullable: true, example: -46.1102 },
+          altitude: { type: 'number', nullable: true, example: 34000 },
+          speed: { type: 'number', nullable: true, example: 810 },
+          heading: { type: 'number', nullable: true, example: 127 },
+          status: { type: 'string', example: 'EM_VOO' },
+          departureTime: { type: 'string', format: 'date-time', nullable: true },
+          arrivalTime: { type: 'string', format: 'date-time', nullable: true },
+          source: { type: 'string', example: 'opensky' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      LiveFlightsResponse: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/LiveFlight' },
+          },
+          meta: {
+            type: 'object',
+            properties: {
+              source: { type: 'string', example: 'all' },
+              fallback: { type: 'string', nullable: true, example: null },
+              cached: { type: 'boolean', example: false },
+              total: { type: 'integer', example: 42 },
+              ttlSeconds: { type: 'integer', example: 30 },
+              updatedAt: { type: 'string', format: 'date-time' },
+            },
+          },
+        },
+      },
       RiscoAtrasoResponse: {
         type: 'object',
         properties: {
@@ -243,6 +284,38 @@ const openApiSpec = {
             preco_medio: '450.00',
           },
         ],
+      },
+      LiveVoosResponseExample: {
+        value: {
+          items: [
+            {
+              id: 'AZ5678',
+              callsign: 'AZ5678',
+              airline: 'Azul',
+              aircraft: 'Airbus A320neo',
+              origin: 'GIG',
+              destination: 'GRU',
+              lat: -22.945,
+              lng: -44.88,
+              altitude: 32000,
+              speed: 790,
+              heading: 243,
+              status: 'EM_VOO',
+              departureTime: '2026-03-05T15:30:00.000Z',
+              arrivalTime: '2026-03-05T16:25:00.000Z',
+              source: 'aerodatabox',
+              updatedAt: '2026-03-05T15:48:00.000Z',
+            },
+          ],
+          meta: {
+            source: 'all',
+            fallback: null,
+            cached: false,
+            total: 1,
+            ttlSeconds: 30,
+            updatedAt: '2026-03-05T15:48:05.000Z',
+          },
+        },
       },
       RiscoResponseExample: {
         value: {
@@ -498,6 +571,32 @@ const openApiSpec = {
               },
             },
           },
+        },
+      },
+    },
+    '/voos/live': {
+      get: {
+        tags: ['Voos'],
+        summary: 'Listar voos ao vivo (OpenSky + AeroDataBox + fallback local)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 300 } },
+          { name: 'source', in: 'query', required: false, schema: { type: 'string', enum: ['opensky', 'aerodatabox', 'all'] } },
+          { name: 'status', in: 'query', required: false, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: {
+            description: 'Lista normalizada de voos ao vivo',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/LiveFlightsResponse' },
+                examples: {
+                  padrao: { $ref: '#/components/examples/LiveVoosResponseExample' },
+                },
+              },
+            },
+          },
+          500: { description: 'Erro ao consultar voos ao vivo', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
         },
       },
     },

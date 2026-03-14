@@ -1,4 +1,4 @@
-function calcularRiscoPercent(voo, modelo = 'tradicional') {
+﻿function calcularRiscoPercent(voo, modelo = 'tradicional') {
   const status = String(voo.status || '').toLowerCase();
   let percent = 20;
 
@@ -419,3 +419,4 @@ function gerarRespostaAssistente({ pergunta, voos = [], historico = [], usuario 
 }
 
 module.exports = { calcularRiscoAtraso, gerarRespostaAssistente };
+
