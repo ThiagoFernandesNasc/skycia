@@ -5,6 +5,8 @@ import { jsPDF } from 'jspdf';
 import api from './api';
 import './App.css';
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+
 const MOCK_RELATORIOS = [
   { nome: 'Relatório de Voos - Diário', tipo: 'Operacional', tamanho: '2.4 MB', status: 'Pronto', lgpd: 'Conforme', dateOffsetDays: 0 },
   { nome: 'Análise de Atrasos - Semanal', tipo: 'Análise', tamanho: '1.8 MB', status: 'Pronto', lgpd: 'Conforme', dateOffsetDays: 0 },
@@ -1514,6 +1516,10 @@ function advanceFlightProgress(flight) {
   }, [displayedFlight]);
 
   function goSection(section) {
+    if (DEMO_MODE && section !== 'dashboard') {
+      setMenuOpen(false);
+      return;
+    }
     setActiveSection(section);
     setMenuOpen(false);
   }
@@ -1523,6 +1529,7 @@ function advanceFlightProgress(flight) {
   }, [token, rememberMe]);
 
   useEffect(() => {
+    if (DEMO_MODE) return;
     let cancelled = false;
     const bootstrapSession = async () => {
       try {
@@ -1577,6 +1584,7 @@ function advanceFlightProgress(flight) {
     };
 
     const fetchHistory = async () => {
+      if (DEMO_MODE) return null;
       try {
         const params = new URLSearchParams();
         if (displayedFlight?.cia && displayedFlight.cia !== 'N/A') params.set('companhia', displayedFlight.cia);
@@ -1606,6 +1614,7 @@ function advanceFlightProgress(flight) {
   }, [displayedFlight]);
 
   useEffect(() => {
+    if (DEMO_MODE) return;
     if (!token || me) return;
     let cancelled = false;
 
@@ -2765,18 +2774,22 @@ function advanceFlightProgress(flight) {
         <button className={`nav-btn ${activeSection === 'dashboard' ? 'active' : ''}`} onClick={() => goSection('dashboard')}>
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 10h18v6H3z" stroke="#9fbef8" strokeWidth="1.2" fill="#0d2a4a"/></svg>{tr('Dashboard', 'Dashboard')}
         </button>
-        <button className={`nav-btn ${activeSection === 'voos' ? 'active' : ''}`} onClick={() => goSection('voos')}>
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l3 7h6l-5 4 2 7-6-4-6 4 2-7-5-4h6z" stroke="#9fbef8" strokeWidth="0.8"/></svg>{tr('Voos', 'Flights')}
-        </button>
-        <button className={`nav-btn ${activeSection === 'aeronaves' ? 'active' : ''}`} onClick={() => goSection('aeronaves')}>
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="3" stroke="#9fbef8" strokeWidth="0.9"/><path d="M4 20c4-4 8-4 16 0" stroke="#9fbef8" strokeWidth="0.9"/></svg>{tr('Aeronaves', 'Aircraft')}
-        </button>
-        <button className={`nav-btn ${activeSection === 'relatorios' ? 'active' : ''}`} onClick={() => goSection('relatorios')}>
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" stroke="#9fbef8" strokeWidth="0.9"/></svg>{tr('Relatórios', 'Reports')}
-        </button>
-        <button className={`nav-btn ${activeSection === 'configuracoes' ? 'active' : ''}`} onClick={() => goSection('configuracoes')}>
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" stroke="#9fbef8" strokeWidth="0.9"/><path d="M19.4 15a1.5 1.5 0 0 0 0-1.8l1.3-1a.6.6 0 0 0 0-1l-1.3-1a1.5 1.5 0 0 0-1.8 0l-1-.6a.6.6 0 0 0-.6 0l-1 .6a1.5 1.5 0 0 0-1.8 0l-1.3-1a.6.6 0 0 0-1 0l-1.3 1a1.5 1.5 0 0 0 0 1.8l-1 .6a.6.6 0 0 0 0 .6l1 .6a1.5 1.5 0 0 0 0 1.8l-1.3 1a.6.6 0 0 0 0 1l1.3 1a1.5 1.5 0 0 0 1.8 0l1 .6a.6.6 0 0 0 .6 0l1-.6a1.5 1.5 0 0 0 1.8 0l1.3 1a.6.6 0 0 0 1 0l1.3-1a1.5 1.5 0 0 0 0-1.8l1-.6a.6.6 0 0 0 0-.6z" stroke="#9fbef8" strokeWidth="0.6"/></svg>{tr('Configurações', 'Settings')}
-        </button>
+        {!DEMO_MODE && (
+          <>
+            <button className={`nav-btn ${activeSection === 'voos' ? 'active' : ''}`} onClick={() => goSection('voos')}>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l3 7h6l-5 4 2 7-6-4-6 4 2-7-5-4h6z" stroke="#9fbef8" strokeWidth="0.8"/></svg>{tr('Voos', 'Flights')}
+            </button>
+            <button className={`nav-btn ${activeSection === 'aeronaves' ? 'active' : ''}`} onClick={() => goSection('aeronaves')}>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="3" stroke="#9fbef8" strokeWidth="0.9"/><path d="M4 20c4-4 8-4 16 0" stroke="#9fbef8" strokeWidth="0.9"/></svg>{tr('Aeronaves', 'Aircraft')}
+            </button>
+            <button className={`nav-btn ${activeSection === 'relatorios' ? 'active' : ''}`} onClick={() => goSection('relatorios')}>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" stroke="#9fbef8" strokeWidth="0.9"/></svg>{tr('Relatórios', 'Reports')}
+            </button>
+            <button className={`nav-btn ${activeSection === 'configuracoes' ? 'active' : ''}`} onClick={() => goSection('configuracoes')}>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" stroke="#9fbef8" strokeWidth="0.9"/><path d="M19.4 15a1.5 1.5 0 0 0 0-1.8l1.3-1a.6.6 0 0 0 0-1l-1.3-1a1.5 1.5 0 0 0-1.8 0l-1-.6a.6.6 0 0 0-.6 0l-1 .6a1.5 1.5 0 0 0-1.8 0l-1.3-1a.6.6 0 0 0-1 0l-1.3 1a1.5 1.5 0 0 0 0 1.8l-1 .6a.6.6 0 0 0 0 .6l1 .6a1.5 1.5 0 0 0 0 1.8l-1.3 1a.6.6 0 0 0 0 1l1.3 1a1.5 1.5 0 0 0 1.8 0l1 .6a.6.6 0 0 0 .6 0l1-.6a1.5 1.5 0 0 0 1.8 0l1.3 1a.6.6 0 0 0 1 0l1.3-1a1.5 1.5 0 0 0 0-1.8l1-.6a.6.6 0 0 0 0-.6z" stroke="#9fbef8" strokeWidth="0.6"/></svg>{tr('Configurações', 'Settings')}
+            </button>
+          </>
+        )}
       </aside>
       {menuOpen && <button className="sidebar-backdrop" onClick={() => setMenuOpen(false)} aria-label={tr('Fechar menu', 'Close menu')} />}
 
@@ -2822,25 +2835,29 @@ function advanceFlightProgress(flight) {
               <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" /><path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
               <span>{nowLabel}</span>
             </div>
-            <button className={`ai-toggle ${aiOpen ? 'on' : ''}`} onClick={() => setAiOpen((v) => !v)} aria-label="Abrir IA">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="6" y="5" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.6" />
-                <path d="M9 10h.01M15 10h.01M8.5 18h7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                <path d="M12 5V3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-            </button>
-            <span className="who">{me?.nome || 'Operador'} ({roleLabel})</span>
-            <button className={`privacy-toggle ${privacyMode ? 'on' : ''}`} onClick={() => setPrivacyMode((v) => !v)}>
-              {tr('Modo Privacidade', 'Privacy Mode')} {privacyMode ? 'ON' : 'OFF'}
-            </button>
-            {token ? (
-              <button className="btn ghost" onClick={sair}>{tr('Sair', 'Logout')}</button>
-            ) : (
-              <button className="btn ghost icon-btn" onClick={() => setLoginOpen(true)} aria-label={tr('Entrar', 'Sign In')} title={tr('Entrar', 'Sign In')}>
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M4 12h9M10 7l5 5-5 5M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
+            {!DEMO_MODE && (
+              <>
+                <button className={`ai-toggle ${aiOpen ? 'on' : ''}`} onClick={() => setAiOpen((v) => !v)} aria-label="Abrir IA">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="6" y="5" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.6" />
+                    <path d="M9 10h.01M15 10h.01M8.5 18h7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                    <path d="M12 5V3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                </button>
+                <span className="who">{me?.nome || 'Operador'} ({roleLabel})</span>
+                <button className={`privacy-toggle ${privacyMode ? 'on' : ''}`} onClick={() => setPrivacyMode((v) => !v)}>
+                  {tr('Modo Privacidade', 'Privacy Mode')} {privacyMode ? 'ON' : 'OFF'}
+                </button>
+                {token ? (
+                  <button className="btn ghost" onClick={sair}>{tr('Sair', 'Logout')}</button>
+                ) : (
+                  <button className="btn ghost icon-btn" onClick={() => setLoginOpen(true)} aria-label={tr('Entrar', 'Sign In')} title={tr('Entrar', 'Sign In')}>
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M4 12h9M10 7l5 5-5 5M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
+              </>
             )}
           </div>
         </header>
@@ -2852,7 +2869,7 @@ function advanceFlightProgress(flight) {
             <strong>{tr('Alerta', 'Alert')}:</strong> {delayAlertMessage}
           </div>
         ) : null}
-        {aiOpen && (
+        {!DEMO_MODE && aiOpen && (
           <aside className="ai-drawer">
             <div className="ai-drawer-head">
               <h3>{tr('Assistente IA', 'AI Assistant')}</h3>
@@ -2880,7 +2897,7 @@ function advanceFlightProgress(flight) {
             </form>
           </aside>
         )}
-        {renderAuthModal()}
+        {!DEMO_MODE && renderAuthModal()}
 
         {activeSection === 'dashboard' && (
           <section className="section">
@@ -3057,6 +3074,7 @@ function advanceFlightProgress(flight) {
                 <button className="btn ghost small" onClick={() => setVooPage((p) => Math.min(totalVooPages, p + 1))} disabled={vooPage >= totalVooPages}>{tr('Próxima', 'Next')}</button>
               </div>
             </div>
+            {!DEMO_MODE && (
             <aside className="panel chat">
                 <h3>{tr('Chat IA Generativa', 'Generative AI Chat')}</h3>
             <div className="chat-body">
@@ -3080,11 +3098,12 @@ function advanceFlightProgress(flight) {
                   </button>
                 </form>
               </aside>
+            )}
             </div>
           </section>
         )}
 
-        {activeSection === 'voos' && (
+        {!DEMO_MODE && activeSection === 'voos' && (
           <section className="section">
             <div className="voos-header">
               <div>
@@ -3173,7 +3192,7 @@ function advanceFlightProgress(flight) {
           </section>
         )}
 
-        {activeSection === 'aeronaves' && (
+        {!DEMO_MODE && activeSection === 'aeronaves' && (
           <section className="section">
             <div className="aeronaves-header">
               <div>
@@ -3224,7 +3243,7 @@ function advanceFlightProgress(flight) {
           </section>
         )}
 
-        {activeSection === 'relatorios' && (
+        {!DEMO_MODE && activeSection === 'relatorios' && (
           <section className="section">
             <h2>{tr('Relatórios', 'Reports')}</h2>
             <div className="panel lgpd-banner">
@@ -3297,7 +3316,7 @@ function advanceFlightProgress(flight) {
           </section>
         )}
 
-        {activeSection === 'configuracoes' && (
+        {!DEMO_MODE && activeSection === 'configuracoes' && (
           <section className="section">
             <h2>{tr('Configurações', 'Settings')}</h2>
             <p className="section-sub">{tr('Personalize suas preferências do sistema', 'Customize your system preferences')}</p>
