@@ -41,7 +41,7 @@ O que falar:
 - Fechar com backlog e proximos marcos.
 
 Exemplo de fala:
-> Boa tarde. Nesta primeira entrega, nosso objetivo foi validar a fundacao do projeto SkyTrak CIA. A proposta da solucao e centralizar informacoes operacionais de voos em uma plataforma que facilite visualizacao, acompanhamento e, futuramente, apoio a decisao. Neste momento, estamos apresentando duas entregas ja funcionais: o dashboard no frontend e a API no backend, que representam a base sobre a qual as proximas etapas serao desenvolvidas.
+> Boa tarde. Nesta primeira entrega, nosso objetivo foi validar a fundacao do projeto SkyTrak ATC. A proposta da solucao e centralizar informacoes operacionais de voos em uma plataforma que facilite visualizacao, acompanhamento e, futuramente, apoio a decisao. Neste momento, estamos apresentando duas entregas ja funcionais: o dashboard no frontend e a API no backend, que representam a base sobre a qual as proximas etapas serao desenvolvidas.
 >
 > Do ponto de vista de produto, a nossa preocupacao foi organizar uma entrega inicial que nao fosse apenas conceitual, mas que ja demonstrasse valor pratico. Por isso, priorizamos uma interface capaz de exibir informacoes relevantes e uma API estruturada para sustentar a evolucao do sistema. Ao longo da apresentacao, vamos mostrar o que ja foi implementado, como o grupo se organizou e quais sao os proximos passos previstos.
 
@@ -92,7 +92,7 @@ O que mostrar:
 
 ### 1. Abertura
 
-> Boa tarde. Somos o grupo responsavel pelo projeto SkyTrak CIA, uma solucao voltada ao acompanhamento operacional de voos e a analise de risco de atrasos. Nesta primeira apresentacao, nosso objetivo e demonstrar a base ja construida do sistema, destacando o dashboard funcional, a API em funcionamento e a forma como estruturamos o trabalho da equipe para garantir continuidade nas proximas entregas.
+> Boa tarde. Somos o grupo responsavel pelo projeto SkyTrak ATC, uma solucao voltada ao acompanhamento operacional de voos e a analise de risco de atrasos. Nesta primeira apresentacao, nosso objetivo e demonstrar a base ja construida do sistema, destacando o dashboard funcional, a API em funcionamento e a forma como estruturamos o trabalho da equipe para garantir continuidade nas proximas entregas.
 
 ### 2. Problema e proposta de valor
 
@@ -148,7 +148,7 @@ Se voces forem apresentar com slides, uma divisao simples para 5 integrantes pod
 
 ### Product Manager
 
-> Boa tarde. Somos o grupo responsavel pelo SkyTrak CIA. O projeto foi pensado para centralizar informacoes operacionais de voos e criar uma base capaz de apoiar o acompanhamento e, futuramente, a analise de risco de atrasos. Nesta primeira entrega, nosso foco foi validar a estrutura do produto com uma implementacao funcional, priorizando um dashboard no frontend e uma API no backend.
+> Boa tarde. Somos o grupo responsavel pelo SkyTrak ATC. O projeto foi pensado para centralizar informacoes operacionais de voos e criar uma base capaz de apoiar o acompanhamento e, futuramente, a analise de risco de atrasos. Nesta primeira entrega, nosso foco foi validar a estrutura do produto com uma implementacao funcional, priorizando um dashboard no frontend e uma API no backend.
 >
 > A decisao do grupo foi trabalhar em etapas, garantindo que cada entrega tivesse valor real e contribuicoes concretas para a evolucao do sistema. Assim, em vez de apresentar apenas uma proposta conceitual, optamos por demonstrar uma base ja operante, sobre a qual construiremos as proximas funcionalidades previstas no cronograma.
 
@@ -197,6 +197,38 @@ Se voces forem apresentar com slides, uma divisao simples para 5 integrantes pod
 ## Modo demo
 
 Se quiserem apresentar somente Dashboard + API de voos ao vivo, usem o modo de demonstracao abaixo.
+
+### Como apresentar a demo de forma mais profissional
+
+Em vez de apenas abrir telas e executar rotas, o ideal e conduzir a demonstracao com uma narrativa curta e objetiva. A demo deve mostrar tres pontos:
+
+1. O que esta sendo demonstrado.
+2. Por que essa parte e importante para o projeto.
+3. O que a demonstracao comprova tecnicamente.
+
+### Fala de abertura da demo
+
+> Nesta demonstracao, vamos apresentar a versao preparada para a entrega atual, com foco no dashboard e na API de voos ao vivo. O objetivo aqui e evidenciar que o projeto ja possui uma interface funcional e uma camada de servicos operando de forma integrada.
+>
+> Mais do que mostrar telas, a nossa intencao e validar que a base do sistema ja foi implementada de forma concreta. Por isso, vamos percorrer rapidamente o frontend e, em seguida, demonstrar a resposta da API que sustenta essa visualizacao.
+
+### Fala durante a exibicao do dashboard
+
+> Neste primeiro momento, estamos visualizando o dashboard, que representa a camada de apresentacao do sistema. Ele foi estruturado para concentrar as informacoes principais de forma clara e organizada, permitindo uma leitura objetiva da situacao apresentada.
+>
+> Para esta entrega, o dashboard cumpre um papel importante porque transforma a arquitetura do projeto em uma experiencia visivel, ajudando a demonstrar que ja existe uma interface funcional preparada para evolucao.
+
+### Fala durante a exibicao da API
+
+> Na sequencia, apresentamos a API responsavel por disponibilizar os dados consumidos pelo sistema. Aqui, o ponto principal e comprovar que a aplicacao nao depende apenas de uma interface visual, mas de uma estrutura backend organizada, capaz de responder requisicoes e sustentar a logica do projeto.
+>
+> Ao executar essa rota, conseguimos evidenciar que os dados estao sendo servidos corretamente, reforcando a integracao entre as camadas e a consistencia tecnica da entrega.
+
+### Fala de encerramento da demo
+
+> Com essa demonstracao, validamos que a entrega atual nao se limita a um prototipo visual. O que temos hoje e uma base funcional, composta por frontend e backend integrados, pronta para sustentar as proximas evolucoes previstas no cronograma.
+>
+> A partir dessa fundacao, o grupo passa a trabalhar na expansao de funcionalidades, no fortalecimento tecnico da aplicacao e na incorporacao dos proximos modulos planejados.
 
 ### Backend
 
