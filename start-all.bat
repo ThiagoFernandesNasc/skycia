@@ -3,6 +3,9 @@ setlocal EnableExtensions
 
 set ROOT=%~dp0
 set "BOOT_ENV_FILE=%ROOT%projetoti\.env"
+set "MYSQL_HOST="
+set "MYSQL_USER="
+set "MYSQL_PASS_RAW="
 
 if exist "%BOOT_ENV_FILE%" (
   for /f "usebackq tokens=1* delims==" %%A in ("%BOOT_ENV_FILE%") do (
@@ -53,16 +56,24 @@ if "%MYSQL_AVAILABLE%"=="1" (
     set /p MYSQL_PASS_RAW=Digite a senha do MySQL ^(ENTER se vazia^):
   )
   if not "%MYSQL_PASS_RAW%"=="" (
-    set MYSQL_PASS=-p%MYSQL_PASS_RAW%
+    set "MYSQL_PASS=--password=%MYSQL_PASS_RAW%"
   ) else (
-    set MYSQL_PASS=
+    set "MYSQL_PASS="
   )
 
   "%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -e "SELECT 1;" >nul 2>&1
   if errorlevel 1 (
-    echo [AVISO] Falha ao conectar no MySQL com os dados informados.
-    echo [AVISO] O script vai iniciar a aplicacao e pular a criacao automatica dos bancos.
-    set MYSQL_AVAILABLE=0
+    cd /d "%ROOT%projetoti" || exit /b 1
+    node scripts\check-db.js >nul 2>&1
+    if errorlevel 1 (
+      echo [AVISO] Falha ao conectar no MySQL com os dados informados.
+      echo [AVISO] O script vai iniciar a aplicacao e pular a criacao automatica dos bancos.
+      set MYSQL_AVAILABLE=0
+    ) else (
+      echo [OK] Conexao com MySQL validada pelo back-end.
+    )
+  ) else (
+    echo [OK] Conexao com MySQL validada pelo cliente mysql.
   )
 )
 
@@ -93,8 +104,10 @@ if not exist ".env" (
 if "%MYSQL_AVAILABLE%"=="1" (
   set DB1=
   set DB2=
-  for /f "delims=" %%A in ('"%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -N -s -e "SHOW DATABASES LIKE 'sistema_voos';"') do set DB1=%%A
-  for /f "delims=" %%A in ('"%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -N -s -e "SHOW DATABASES LIKE 'sistema_voos_spec';"') do set DB2=%%A
+  "%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -e "USE sistema_voos;" >nul 2>&1
+  if not errorlevel 1 set DB1=sistema_voos
+  "%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -e "USE sistema_voos_spec;" >nul 2>&1
+  if not errorlevel 1 set DB2=sistema_voos_spec
 
   if "%DB1%"=="" (
     echo Criando banco operacional...
@@ -111,8 +124,13 @@ if "%MYSQL_AVAILABLE%"=="1" (
     echo Criando banco spec...
     "%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% < spec.sql
     if errorlevel 1 (
-      echo [ERRO] Falha ao criar banco spec.
-      exit /b 1
+      "%MYSQL_EXE%" -h %MYSQL_HOST% -u %MYSQL_USER% %MYSQL_PASS% -e "USE sistema_voos_spec;" >nul 2>&1
+      if errorlevel 1 (
+        echo [ERRO] Falha ao criar banco spec.
+        exit /b 1
+      ) else (
+        echo [AVISO] Banco spec ja existe parcialmente. Seguindo sem recriar.
+      )
     )
   ) else (
     echo Banco sistema_voos_spec ja existe. Pulando spec.sql

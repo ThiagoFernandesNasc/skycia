@@ -2,7 +2,7 @@
 const router = express.Router();
 const db = require('../db');
 const { autenticar } = require('../middlewares/auth.middleware');
-const { getLiveFlights } = require('../services/liveFlights.service');
+const { getLiveFlights, getPersistedLiveFlights, getLiveFlightDetails } = require('../services/liveFlights.service');
 
 // Rota pública para dados ao vivo (sem login)
 router.get('/live', async (req, res) => {
@@ -13,6 +13,28 @@ router.get('/live', async (req, res) => {
   } catch (err) {
     console.error('[liveFlights] erro ao consultar /voos/live:', err);
     res.status(500).json({ error: 'Erro ao consultar voos ao vivo' });
+  }
+});
+
+router.get('/live/persistidos', async (req, res) => {
+  try {
+    const { limit, status, flightKey } = req.query;
+    const payload = await getPersistedLiveFlights({ limit, status, flightKey });
+    res.json(payload);
+  } catch (err) {
+    console.error('[liveFlights] erro ao consultar /voos/live/persistidos:', err);
+    res.status(500).json({ error: 'Erro ao consultar voos ao vivo persistidos' });
+  }
+});
+
+router.get('/live/detalhe/:flightKey', async (req, res) => {
+  try {
+    const payload = await getLiveFlightDetails({ flightKey: req.params.flightKey });
+    if (!payload) return res.status(404).json({ error: 'Voo nao encontrado' });
+    res.json(payload);
+  } catch (err) {
+    console.error('[liveFlights] erro ao consultar /voos/live/detalhe:', err);
+    res.status(500).json({ error: 'Erro ao consultar detalhe do voo ao vivo' });
   }
 });
 

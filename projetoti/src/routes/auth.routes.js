@@ -12,6 +12,27 @@ let securityTablesReady = false;
 async function ensureSecurityTables() {
   if (securityTablesReady) return;
   await dbSpec.query(
+    `CREATE TABLE IF NOT EXISTS consentimento (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      usuario_id INT NOT NULL,
+      tipo VARCHAR(50) NOT NULL,
+      concedido TINYINT(1) NOT NULL,
+      data_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (usuario_id) REFERENCES usuario(id)
+    )`
+  );
+  await dbSpec.query(
+    `CREATE TABLE IF NOT EXISTS log_acesso_dado (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      usuario_id INT NOT NULL,
+      acao VARCHAR(50) NOT NULL,
+      entidade VARCHAR(50) NOT NULL,
+      detalhes TEXT NULL,
+      data_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (usuario_id) REFERENCES usuario(id)
+    )`
+  );
+  await dbSpec.query(
     `CREATE TABLE IF NOT EXISTS usuario_seguranca (
       usuario_id INT PRIMARY KEY,
       two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0,
@@ -333,6 +354,65 @@ router.post('/logout', autenticar, async (req, res) => {
   const isProd = process.env.NODE_ENV === 'production';
   res.clearCookie('auth_token', { sameSite: isProd ? 'none' : 'lax', secure: isProd });
   return res.json({ message: 'Logout realizado' });
+});
+
+// GET /auth/lgpd/consents
+router.get('/lgpd/consents', autenticar, async (req, res) => {
+  try {
+    await ensureSecurityTables();
+    const [rows] = await dbSpec.query(
+      `SELECT c.tipo, c.concedido, c.data_hora
+       FROM consentimento c
+       JOIN (
+         SELECT tipo, MAX(id) AS id
+         FROM consentimento
+         WHERE usuario_id = ?
+         GROUP BY tipo
+       ) ult ON ult.id = c.id
+       ORDER BY c.tipo`,
+      [req.usuario.id]
+    );
+    return res.json({ items: rows || [] });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Erro ao listar consentimentos LGPD' });
+  }
+});
+
+// POST /auth/lgpd/consents
+router.post('/lgpd/consents', autenticar, async (req, res) => {
+  const tipo = String(req.body?.tipo || '').trim().toUpperCase();
+  const concedido = !!req.body?.concedido;
+  const tiposPermitidos = ['OPERACIONAL', 'IA_PREDITIVA', 'IA_GENERATIVA', 'RELATORIOS', 'AUDITORIA'];
+  if (!tiposPermitidos.includes(tipo)) {
+    return res.status(400).json({ error: 'Tipo de consentimento inválido' });
+  }
+  try {
+    await ensureSecurityTables();
+    await dbSpec.query(
+      `INSERT INTO consentimento (usuario_id, tipo, concedido)
+       VALUES (?, ?, ?)`,
+      [req.usuario.id, tipo, concedido ? 1 : 0]
+    );
+    await dbSpec.query(
+      `INSERT INTO log_acesso_dado (usuario_id, acao, entidade, detalhes)
+       VALUES (?, ?, ?, ?)`,
+      [
+        req.usuario.id,
+        concedido ? 'CONSENTIMENTO_CONCEDIDO' : 'CONSENTIMENTO_REVOGADO',
+        'LGPD',
+        JSON.stringify({ tipo, concedido }),
+      ]
+    );
+    return res.json({
+      message: concedido ? 'Consentimento LGPD registrado' : 'Consentimento LGPD revogado',
+      tipo,
+      concedido,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Erro ao registrar consentimento LGPD' });
+  }
 });
 
 // POST /auth/lgpd/request

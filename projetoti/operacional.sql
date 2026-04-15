@@ -112,9 +112,24 @@ INSERT IGNORE INTO aeroporto (nome, cidade, estado, iata, icao) VALUES
 ('Aeroporto de São Paulo', 'São Paulo', 'SP', 'GRU', 'SBGR'),
 ('Aeroporto do Rio', 'Rio de Janeiro', 'RJ', 'GIG', 'SBGL');
 
-INSERT INTO voo (numero_voo, companhia, origem_id, destino_id, horario_previsto, status, preco_medio) VALUES
-('LA1234', 'LATAM', 1, 2, '2026-02-08 10:00:00', 'PREVISTO', 500.00),
-('AZ5678', 'Azul', 2, 1, '2026-02-08 15:30:00', 'EM_VOO', 450.00)
+INSERT INTO voo (numero_voo, companhia, origem_id, destino_id, horario_previsto, status, preco_medio)
+SELECT 'LA1234', 'LATAM', ao.id, ad.id, '2026-02-08 10:00:00', 'PREVISTO', 500.00
+FROM aeroporto ao
+JOIN aeroporto ad ON ad.iata = 'GIG'
+WHERE ao.iata = 'GRU'
+ON DUPLICATE KEY UPDATE
+  companhia=VALUES(companhia),
+  origem_id=VALUES(origem_id),
+  destino_id=VALUES(destino_id),
+  horario_previsto=VALUES(horario_previsto),
+  status=VALUES(status),
+  preco_medio=VALUES(preco_medio);
+
+INSERT INTO voo (numero_voo, companhia, origem_id, destino_id, horario_previsto, status, preco_medio)
+SELECT 'AZ5678', 'Azul', ao.id, ad.id, '2026-02-08 15:30:00', 'EM_VOO', 450.00
+FROM aeroporto ao
+JOIN aeroporto ad ON ad.iata = 'GRU'
+WHERE ao.iata = 'GIG'
 ON DUPLICATE KEY UPDATE
   companhia=VALUES(companhia),
   origem_id=VALUES(origem_id),

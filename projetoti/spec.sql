@@ -12,6 +12,16 @@ CREATE TABLE IF NOT EXISTS usuario (
   criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Garantir coluna companhia em bancos SPEC criados antes dessa modelagem
+SET @schema = DATABASE();
+SET @stmt = IF(
+  (SELECT COUNT(1) FROM information_schema.columns
+   WHERE table_schema=@schema AND table_name='usuario' AND column_name='companhia') = 0,
+  'ALTER TABLE usuario ADD COLUMN companhia VARCHAR(120) NULL AFTER perfil',
+  'SELECT 1'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
 -- LGPD: consentimentos
 CREATE TABLE IF NOT EXISTS consentimento (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -66,9 +76,28 @@ CREATE TABLE IF NOT EXISTS solicitacao_lgpd (
 );
 
 -- Indices recomendados para consultas comuns
-CREATE INDEX idx_sessao_usuario_usuario_ativa_criado
-  ON sessao_usuario(usuario_id, ativa, criado_em);
-CREATE INDEX idx_solicitacao_lgpd_usuario_criado
-  ON solicitacao_lgpd(usuario_id, criado_em);
-CREATE INDEX idx_log_acesso_dado_usuario_data
-  ON log_acesso_dado(usuario_id, data_hora);
+SET @schema = DATABASE();
+
+SET @stmt = IF(
+  (SELECT COUNT(1) FROM information_schema.statistics
+   WHERE table_schema=@schema AND table_name='sessao_usuario' AND index_name='idx_sessao_usuario_usuario_ativa_criado') = 0,
+  'CREATE INDEX idx_sessao_usuario_usuario_ativa_criado ON sessao_usuario(usuario_id, ativa, criado_em)',
+  'SELECT 1'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @stmt = IF(
+  (SELECT COUNT(1) FROM information_schema.statistics
+   WHERE table_schema=@schema AND table_name='solicitacao_lgpd' AND index_name='idx_solicitacao_lgpd_usuario_criado') = 0,
+  'CREATE INDEX idx_solicitacao_lgpd_usuario_criado ON solicitacao_lgpd(usuario_id, criado_em)',
+  'SELECT 1'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @stmt = IF(
+  (SELECT COUNT(1) FROM information_schema.statistics
+   WHERE table_schema=@schema AND table_name='log_acesso_dado' AND index_name='idx_log_acesso_dado_usuario_data') = 0,
+  'CREATE INDEX idx_log_acesso_dado_usuario_data ON log_acesso_dado(usuario_id, data_hora)',
+  'SELECT 1'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;

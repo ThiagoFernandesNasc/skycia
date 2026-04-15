@@ -418,5 +418,139 @@ function gerarRespostaAssistente({ pergunta, voos = [], historico = [], usuario 
   };
 }
 
+function addFactor(fatores, nome, impacto, peso, evidencia) {
+  fatores.push({ nome, impacto, peso, evidencia });
+}
+
+function normalizeNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function calcularRiscoAtraso(voo, modelo = 'tradicional') {
+  const status = normalizar(voo.status_live || voo.status || '');
+  const fonte = normalizar(voo.fonte || voo.source || '');
+  const fatores = [];
+  let score = 24;
+
+  if (status.includes('cancel')) {
+    score += 65;
+    addFactor(fatores, 'Status operacional', 'aumenta', 65, 'Voo marcado como cancelado.');
+  } else if (status.includes('atras') || status.includes('delay')) {
+    score += 46;
+    addFactor(fatores, 'Status operacional', 'aumenta', 46, 'Status atual indica atraso.');
+  } else if (status.includes('previsto') || status.includes('scheduled')) {
+    score += 18;
+    addFactor(fatores, 'Status operacional', 'aumenta', 18, 'Voo ainda previsto e sujeito a ajustes.');
+  } else if (status.includes('voo') || status.includes('airborne')) {
+    score -= 8;
+    addFactor(fatores, 'Fase do voo', 'reduz', -8, 'Voo ja esta em deslocamento.');
+  } else if (status.includes('conclu') || status.includes('arriv') || status.includes('land')) {
+    score -= 18;
+    addFactor(fatores, 'Fase do voo', 'reduz', -18, 'Voo concluido ou em chegada.');
+  }
+
+  const altitude = normalizeNumber(voo.altitude_pes);
+  if (altitude !== null) {
+    if (altitude >= 28000) {
+      score -= 10;
+      addFactor(fatores, 'Altitude', 'reduz', -10, `Cruzeiro em ${Math.round(altitude)} pes.`);
+    } else if (altitude > 0 && altitude < 10000) {
+      score += 6;
+      addFactor(fatores, 'Altitude', 'aumenta', 6, `Baixa altitude (${Math.round(altitude)} pes), fase mais sensivel.`);
+    }
+  } else {
+    score += 6;
+    addFactor(fatores, 'Rastreamento', 'aumenta', 6, 'Altitude indisponivel na fonte atual.');
+  }
+
+  const speed = normalizeNumber(voo.velocidade_kmh);
+  if (speed !== null) {
+    if (speed >= 650) {
+      score -= 6;
+      addFactor(fatores, 'Velocidade', 'reduz', -6, `Velocidade consistente em ${Math.round(speed)} km/h.`);
+    } else if (speed > 0 && speed < 250) {
+      score += 7;
+      addFactor(fatores, 'Velocidade', 'aumenta', 7, `Velocidade baixa (${Math.round(speed)} km/h).`);
+    }
+  } else {
+    score += 4;
+    addFactor(fatores, 'Velocidade', 'aumenta', 4, 'Velocidade nao informada.');
+  }
+
+  const horarioBase = voo.horario_partida || voo.horario_previsto || voo.departureTime;
+  const horario = new Date(horarioBase).getTime();
+  if (!Number.isNaN(horario)) {
+    const diffMin = (horario - Date.now()) / 60000;
+    if (diffMin < -30) {
+      score += 16;
+      addFactor(fatores, 'Janela de horario', 'aumenta', 16, 'Horario previsto ja passou ha mais de 30 minutos.');
+    } else if (diffMin >= -30 && diffMin < 60) {
+      score += 8;
+      addFactor(fatores, 'Janela de horario', 'aumenta', 8, 'Voo esta dentro da janela critica de operacao.');
+    } else if (diffMin > 180) {
+      score -= 4;
+      addFactor(fatores, 'Janela de horario', 'reduz', -4, 'Ainda ha folga antes da operacao.');
+    }
+  } else {
+    score += 5;
+    addFactor(fatores, 'Horario', 'aumenta', 5, 'Horario de partida indisponivel.');
+  }
+
+  if (!(voo.portao_partida || voo.portao_chegada || voo.departureGate || voo.arrivalGate)) {
+    score += 5;
+    addFactor(fatores, 'Portao', 'aumenta', 5, 'Portao ainda nao informado pela fonte.');
+  }
+  if (!(voo.origem && voo.destino)) {
+    score += 4;
+    addFactor(fatores, 'Rota', 'aumenta', 4, 'Origem ou destino ainda incompleto.');
+  }
+
+  if (fonte.includes('all')) {
+    score -= 5;
+    addFactor(fatores, 'Qualidade da fonte', 'reduz', -5, 'Dados combinados entre fontes ao vivo.');
+  } else if (fonte.includes('aerodatabox')) {
+    score -= 2;
+    addFactor(fatores, 'Qualidade da fonte', 'reduz', -2, 'Fonte operacional da AeroDataBox disponivel.');
+  } else if (fonte.includes('opensky')) {
+    score += 3;
+    addFactor(fatores, 'Qualidade da fonte', 'aumenta', 3, 'Fonte forte em rastreio, mas limitada em dados operacionais.');
+  } else if (fonte.includes('local')) {
+    score += 9;
+    addFactor(fatores, 'Qualidade da fonte', 'aumenta', 9, 'Fallback local usado por falta de fonte ao vivo completa.');
+  }
+
+  const preco = normalizeNumber(voo.preco_medio);
+  if (preco !== null && preco >= 700) {
+    score += 4;
+    addFactor(fatores, 'Pressao operacional', 'aumenta', 4, 'Tarifa media elevada pode indicar maior demanda.');
+  }
+
+  const totalSnapshots = normalizeNumber(voo.total_snapshots);
+  if (totalSnapshots !== null && totalSnapshots >= 5) {
+    score -= 3;
+    addFactor(fatores, 'Historico recente', 'reduz', -3, 'Voo possui historico recente persistido para comparacao.');
+  }
+
+  if (modelo === 'generativa') {
+    addFactor(fatores, 'Camada generativa', 'neutro', 0, 'A IA generativa explica a previsao, sem substituir o score.');
+  }
+
+  const percent = Math.min(98, Math.max(5, Math.round(score)));
+  const horarioLabel = horarioBase ? new Date(horarioBase).toLocaleString('pt-BR') : 'nao informado';
+  const fonteLabel = voo.fonte || voo.source || 'nao informada';
+
+  return {
+    percent,
+    label: rotuloRisco(percent),
+    modelo,
+    explicacao: modelo === 'generativa'
+      ? `A IA generativa explica a previsao usando status "${voo.status_live || voo.status || 'previsto'}", horario ${horarioLabel}, dados ao vivo e fonte ${fonteLabel}. Resultado estimado: ${percent}%.`
+      : `IA tradicional calculou ${percent}% cruzando status "${voo.status_live || voo.status || 'previsto'}", horario ${horarioLabel}, rastreamento ao vivo, completude dos dados e fonte ${fonteLabel}.`,
+    fatores,
+    confianca: nivelConfianca(Math.min(1, 0.35 + fatores.filter((f) => f.impacto !== 'neutro').length * 0.09)),
+  };
+}
+
 module.exports = { calcularRiscoAtraso, gerarRespostaAssistente };
 

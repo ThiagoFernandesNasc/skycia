@@ -5,19 +5,58 @@ const dbSpec = require('./dbSpec');
 const { autenticar } = require('../middlewares/auth.middleware');
 const { calcularRiscoAtraso, gerarRespostaAssistente } = require('../services/ia.service');
 const { gerarRespostaLLM } = require('../services/llm.service');
-
-router.use(autenticar);
+const DEMO_MODE = process.env.DEMO_MODE === 'true';
 
 // GET /ia/risco-atraso/:numero_voo?modelo=tradicional|generativa
 router.get('/risco-atraso/:numero_voo', async (req, res) => {
   const { numero_voo } = req.params;
-  const modelo = req.query.modelo === 'generativa' ? 'generativa' : 'tradicional';
+  const modelo = !DEMO_MODE && req.query.modelo === 'generativa' ? 'generativa' : 'tradicional';
+  const key = String(numero_voo || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
   try {
-    const [rows] = await db.query(
-      'SELECT numero_voo, companhia, horario_previsto, status, preco_medio FROM voo WHERE numero_voo = ?',
-      [numero_voo]
+    let [rows] = await db.query(
+      `
+      SELECT
+        flight_key,
+        numero_voo,
+        callsign,
+        companhia,
+        aeronave,
+        origem,
+        destino,
+        altitude_pes,
+        velocidade_kmh,
+        rumo_graus,
+        status AS status_live,
+        horario_partida,
+        horario_chegada,
+        portao_partida,
+        portao_chegada,
+        terminal_partida,
+        terminal_chegada,
+        fonte,
+        atualizado_api_em,
+        (
+          SELECT COUNT(*)
+          FROM voo_live_snapshot s
+          WHERE s.flight_key = v.flight_key
+        ) AS total_snapshots
+      FROM voo_live_estado v
+      WHERE flight_key = ?
+         OR UPPER(REPLACE(COALESCE(numero_voo, ''), ' ', '')) = ?
+         OR UPPER(REPLACE(COALESCE(callsign, ''), ' ', '')) = ?
+      ORDER BY COALESCE(atualizado_api_em, persistido_em) DESC
+      LIMIT 1
+      `,
+      [key, key, key]
     );
+
+    if (rows.length === 0) {
+      [rows] = await db.query(
+        'SELECT numero_voo, companhia, horario_previsto, status, preco_medio FROM voo WHERE UPPER(REPLACE(numero_voo, " ", "")) = ?',
+        [key]
+      );
+    }
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Voo não encontrado' });
@@ -26,7 +65,7 @@ router.get('/risco-atraso/:numero_voo', async (req, res) => {
     const voo = rows[0];
     const risco = calcularRiscoAtraso(voo, modelo);
 
-    try {
+    if (req.usuario?.id) try {
       await dbSpec.query(
         `INSERT INTO log_acesso_dado
           (usuario_id, acao, entidade, detalhes)
@@ -54,6 +93,8 @@ router.get('/risco-atraso/:numero_voo', async (req, res) => {
   }
 });
 
+router.use(autenticar);
+
 // POST /ia/chat
 // body: { pergunta: string, historico?: Array<{ role: 'user'|'assistant', content: string }> }
 router.post('/chat', async (req, res) => {
@@ -63,7 +104,7 @@ router.post('/chat', async (req, res) => {
   const modo = req.body?.modo === 'tecnico' ? 'tecnico' : 'executivo';
   const page = Number(req.body?.page || 1);
   const limit = Number(req.body?.limit || 10);
-  const usarLLM = req.body?.usarLLM !== false;
+  const usarLLM = !DEMO_MODE && req.body?.usarLLM !== false;
   if (!pergunta) return res.status(400).json({ error: 'Pergunta obrigatoria' });
 
   try {

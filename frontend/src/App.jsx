@@ -5,7 +5,8 @@ import { jsPDF } from 'jspdf';
 import api from './api';
 import './App.css';
 
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+const PRESENTATION_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+const DEMO_MODE = false;
 
 const MOCK_RELATORIOS = [
   { nome: 'Relatório de Voos - Diário', tipo: 'Operacional', tamanho: '2.4 MB', status: 'Pronto', lgpd: 'Conforme', dateOffsetDays: 0 },
@@ -42,6 +43,44 @@ const ROLE_LABELS = {
 
 const DEFAULT_ASSISTANT_PT = 'Posso responder sobre o site e sobre voos. Exemplo: "quais voos estão atrasados?"';
 const DEFAULT_ASSISTANT_EN = 'I can answer about the website and flights. Example: "which flights are delayed?"';
+
+const LGPD_PURPOSES = [
+  {
+    key: 'OPERACIONAL',
+    titlePt: 'Operação de voos',
+    titleEn: 'Flight operations',
+    descPt: 'Uso de dados de conta e navegação para monitorar voos, filtros, alertas e sessões.',
+    descEn: 'Account and navigation data used for flight monitoring, filters, alerts and sessions.',
+  },
+  {
+    key: 'IA_PREDITIVA',
+    titlePt: 'IA preditiva',
+    titleEn: 'Predictive AI',
+    descPt: 'Uso de dados operacionais para estimar probabilidade de atraso do voo selecionado.',
+    descEn: 'Operational data used to estimate delay probability for the selected flight.',
+  },
+  {
+    key: 'IA_GENERATIVA',
+    titlePt: 'IA generativa',
+    titleEn: 'Generative AI',
+    descPt: 'Uso do contexto enviado pelo usuario para gerar explicacoes e respostas no assistente.',
+    descEn: 'User-provided context used to generate explanations and assistant answers.',
+  },
+  {
+    key: 'RELATORIOS',
+    titlePt: 'Relatorios e exportacoes',
+    titleEn: 'Reports and exports',
+    descPt: 'Tratamento de dados para gerar relatorios operacionais e arquivos de acompanhamento.',
+    descEn: 'Data processing to generate operational reports and monitoring files.',
+  },
+  {
+    key: 'AUDITORIA',
+    titlePt: 'Auditoria e seguranca',
+    titleEn: 'Audit and security',
+    descPt: 'Registro de acessos e acoes criticas para rastreabilidade e seguranca da conta.',
+    descEn: 'Access and critical action logs for traceability and account security.',
+  },
+];
 
 function sanitizeFileName(value) {
   return String(value || '')
@@ -1063,8 +1102,8 @@ function mapLiveFlightToMapFlight(flight, airportCatalog) {
 
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
   const hasRouteFromApi = parsedOrigin.code !== 'UNK' && parsedDestination.code !== 'UNK';
-  const hasKinematics = speedKmh !== null || altitudeFeet !== null;
-  if (!hasCoords || (!hasRouteFromApi && !hasKinematics)) return null;
+  const allowSyntheticTrack = source !== 'local';
+  if (!hasCoords && !allowSyntheticTrack) return null;
   const templateMode = !hasRouteFromApi ? 'mixed' : 'international';
   const template = pickTemplateFlightById(id, source === 'local' ? 'mixed' : templateMode);
   const gate = flight?.departureGate || flight?.arrivalGate || template?.portao || '-';
@@ -1168,6 +1207,37 @@ function probabilityMeta(percent) {
   if (percent >= 70) return { tone: 'danger', label: 'high' };
   if (percent >= 40) return { tone: 'warn', label: 'medium' };
   return { tone: 'ok', label: 'low' };
+}
+
+function deriveFlightDelayChance(flight) {
+  if (!flight) return null;
+  const apiPercent = normalizePercent(flight?.riscoInfo?.percent);
+  const basePercent = (() => {
+    if (flight.risco === 'atraso') return 74;
+    if (flight.risco === 'atencao') return 48;
+    return 18;
+  })();
+  const progressAdjust = Math.round((1 - (Number(flight?.progress) || 0)) * 14);
+  const percent = apiPercent ?? Math.max(5, Math.min(95, basePercent + progressAdjust));
+  return { percent, ...probabilityMeta(percent) };
+}
+
+function buildFlightProbabilityForecast(flight, fallbackPercent) {
+  const horaBase = new Date().getHours();
+  const idSeed = hashFromString(flight?.id || flight?.callsign || 'flight');
+  const progress = Number.isFinite(flight?.progress) ? flight.progress : 0.5;
+  const sourceBias = String(flight?.source || '').toLowerCase() === 'local' ? 2 : -2;
+  const basePercent = normalizePercent(fallbackPercent) ?? 25;
+  const progressionBias = Math.round((1 - progress) * 10);
+  const offsets = [0, 1, 2, 3];
+
+  return offsets.map((offset) => {
+    const hora = String((horaBase + offset) % 24).padStart(2, '0');
+    const wave = ((idSeed >> (offset * 3)) % 11) - 5;
+    const trend = offset * 3;
+    const percent = Math.max(5, Math.min(95, basePercent + progressionBias + sourceBias + wave + trend));
+    return { hora: `${hora}:00`, percent, ...probabilityMeta(percent) };
+  });
 }
 
 function advanceFlightProgress(flight) {
@@ -1362,7 +1432,7 @@ function advanceFlightProgress(flight) {
   const [lastChatRequest, setLastChatRequest] = useState(null);
   const CHAT_MODE_DEFAULT = 'executivo';
   const CHAT_LIMIT_DEFAULT = 10;
-  const CHAT_USE_LLM_DEFAULT = true;
+  const CHAT_USE_LLM_DEFAULT = !PRESENTATION_MODE;
   const [tema, setTema] = useState(() => localStorage.getItem('theme_mode') || 'escuro');
   const [idioma, setIdioma] = useState(() => localStorage.getItem('language_mode') || 'pt-BR');
   const [densidade, setDensidade] = useState(() => localStorage.getItem('density_mode') || 'confortavel');
@@ -1376,6 +1446,8 @@ function advanceFlightProgress(flight) {
   const [sessoes, setSessoes] = useState([]);
   const [lgpdTipo, setLgpdTipo] = useState('EXPORTACAO');
   const [lgpdDetalhes, setLgpdDetalhes] = useState('');
+  const [lgpdConsents, setLgpdConsents] = useState({});
+  const [lgpdConsentDates, setLgpdConsentDates] = useState({});
   const [relatorios, setRelatorios] = useState(() => buildInitialReports(new Date()));
   const [relatorioPeriodo, setRelatorioPeriodo] = useState('7');
   const [relatorioFiltrosAbertos, setRelatorioFiltrosAbertos] = useState(false);
@@ -1418,8 +1490,13 @@ function advanceFlightProgress(flight) {
   const [vooFeedback, setVooFeedback] = useState('');
   const mapRootRef = useRef(null);
   const leafletRef = useRef({ map: null, markers: new Map(), routes: new Map(), base: null, airportsLayer: null });
+  const mapFlightsRef = useRef(mapFlights);
   const lastDelayAlertKeyRef = useRef('');
   const lastReportsDayKeyRef = useRef(formatDateBr(new Date()));
+
+  useEffect(() => {
+    mapFlightsRef.current = mapFlights;
+  }, [mapFlights]);
 
   const selectedFlight = useMemo(
     () => mapFlights.find((f) => f.id === selectedFlightId) || null,
@@ -1458,6 +1535,7 @@ function advanceFlightProgress(flight) {
     });
   }, [mapFlights, buscaGlobal]);
 
+  const flightLookup = useMemo(() => new Map(mapFlights.map((flight) => [flight.id, flight])), [mapFlights]);
   const visiveis = useMemo(() => voosComBuscaGlobal.map(mapFlightToTableRow), [voosComBuscaGlobal]);
   const aeronavesVisiveis = useMemo(() => voosComBuscaGlobal.map(mapFlightToAircraftCard), [voosComBuscaGlobal]);
   const voosBase = voosComBuscaGlobal;
@@ -1484,7 +1562,15 @@ function advanceFlightProgress(flight) {
     return m;
   }, []);
 
+  const selectedDelayChance = useMemo(() => {
+    return deriveFlightDelayChance(displayedFlight);
+  }, [displayedFlight]);
+
   const forecastProbabilidade = useMemo(() => {
+    if (displayedFlight) {
+      return buildFlightProbabilityForecast(displayedFlight, selectedDelayChance?.percent);
+    }
+
     const baseAtraso = mapResumo.atraso * 85 + mapResumo.atencao * 55 + mapResumo.operando * 22;
     const total = Math.max(1, voosBase.length);
     const base = Math.round(baseAtraso / total);
@@ -1495,25 +1581,32 @@ function advanceFlightProgress(flight) {
       const percent = Math.max(8, Math.min(95, base + offset * 7));
       return { hora: `${hora}:00`, percent, ...probabilityMeta(percent) };
     });
-  }, [voosBase.length, mapResumo]);
+  }, [displayedFlight, selectedDelayChance?.percent, voosBase.length, mapResumo]);
 
   const picoForecast = useMemo(
     () => forecastProbabilidade.reduce((max, item) => (item.percent > max.percent ? item : max), forecastProbabilidade[0]),
     [forecastProbabilidade]
   );
 
-  const selectedDelayChance = useMemo(() => {
-    if (!displayedFlight) return null;
-    const apiPercent = normalizePercent(displayedFlight?.riscoInfo?.percent);
-    const basePercent = (() => {
-      if (displayedFlight.risco === 'atraso') return 74;
-      if (displayedFlight.risco === 'atencao') return 48;
-      return 18;
-    })();
-    const progressAdjust = Math.round((1 - displayedFlight.progress) * 14);
-    const percent = apiPercent ?? Math.max(5, Math.min(95, basePercent + progressAdjust));
-    return { percent, ...probabilityMeta(percent) };
-  }, [displayedFlight]);
+  const probabilityPanelCopy = useMemo(() => {
+    const isEn = idioma === 'en';
+    if (!displayedFlight) {
+      return {
+        title: isEn ? 'Operational Delay Probability' : 'Probabilidade de Atrasos Operacionais',
+        subtitle: isEn ? 'Forecast for the next 4 hours' : 'Previsão para as próximas 4 horas',
+        chip: `${isEn ? 'Forecast peak' : 'Pico previsto'}: ${picoForecast?.hora} (${picoForecast?.percent || 0}%)`,
+      };
+    }
+
+    const routeLabel = `${displayedFlight.from?.code || '---'} → ${displayedFlight.to?.code || '---'}`;
+    return {
+      title: isEn ? 'Selected flight probability' : 'Probabilidade do voo selecionado',
+      subtitle: isEn
+        ? `Forecast for ${displayedFlight.id} (${routeLabel}) over the next 4 hours`
+        : `Previsão para ${displayedFlight.id} (${routeLabel}) nas próximas 4 horas`,
+      chip: `${isEn ? 'Focus' : 'Foco'}: ${displayedFlight.id} · ${picoForecast?.percent || 0}%`,
+    };
+  }, [displayedFlight, picoForecast, idioma]);
 
   function goSection(section) {
     if (DEMO_MODE && section !== 'dashboard') {
@@ -1668,8 +1761,8 @@ function advanceFlightProgress(flight) {
   const roleLabel = idioma === 'en'
     ? (ROLE_LABELS[currentRole]?.en || currentRole)
     : (ROLE_LABELS[currentRole]?.pt || currentRole);
-  const addAudit = (actionPt, actionEn, details = '', severity = 'info') => {
-    const entry = {
+	  const addAudit = (actionPt, actionEn, details = '', severity = 'info') => {
+	    const entry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       at: new Date().toISOString(),
       role: currentRole,
@@ -1677,10 +1770,29 @@ function advanceFlightProgress(flight) {
       action: tr(actionPt, actionEn),
       details,
       severity,
-    };
-    setAuditTrail((prev) => [entry, ...prev].slice(0, 80));
-  };
-  const trStatus = (status) => {
+	    };
+	    setAuditTrail((prev) => [entry, ...prev].slice(0, 80));
+	  };
+	  const requireAuthenticatedAction = () => {
+	    if (token) return true;
+	    setSecurityFeedback(tr('Faca login para registrar consentimentos e solicitacoes LGPD.', 'Sign in to register LGPD consents and requests.'));
+	    setModoAuth('login');
+	    setLoginOpen(true);
+	    return false;
+	  };
+	  const handleSecurityApiError = (err, fallbackPt, fallbackEn) => {
+	    const status = err?.response?.status;
+	    if (status === 401 || status === 403) {
+	      setToken(false);
+	      setMe(null);
+	      setModoAuth('login');
+	      setLoginOpen(true);
+	      setSecurityFeedback(tr('Sua sessao expirou. Faca login novamente para continuar.', 'Your session expired. Sign in again to continue.'));
+	      return;
+	    }
+	    setSecurityFeedback(err?.response?.data?.error || tr(fallbackPt, fallbackEn));
+	  };
+	  const trStatus = (status) => {
     const s = String(status || '').toLowerCase();
     if (s.includes('atraso')) return tr('Atraso Provável', 'Likely Delay');
     if (s.includes('confirm')) return tr('Confirmado', 'Confirmed');
@@ -1698,6 +1810,85 @@ function advanceFlightProgress(flight) {
     if (label === 'low') return tr('Baixa', 'Low');
     return label || '-';
   };
+  const riskSignals = useMemo(() => {
+    if (!displayedFlight || !selectedDelayChance) return [];
+
+    const signals = [];
+    const sourceLabel = liveSourceBadgeLabel(displayedFlight?.source || liveMeta?.source, tr);
+    const historyRate = Number(flightHistory?.taxa_atraso || 0);
+    const progressPercent = Math.round((Number(displayedFlight?.progress) || 0) * 100);
+    const originWeatherLabel = String(flightWeather?.origin?.label || '').toLowerCase();
+    const destWeatherLabel = String(flightWeather?.dest?.label || '').toLowerCase();
+    const weatherIsUnstable = ['chuva', 'garoa', 'tempestade', 'inst', 'rain', 'storm', 'drizzle', 'wind'].some((term) =>
+      originWeatherLabel.includes(term) || destWeatherLabel.includes(term)
+    );
+
+    if (displayedFlight?.statusRaw) {
+      const statusTone = String(displayedFlight.statusRaw).toLowerCase().includes('atras') ? 'danger' : 'ok';
+      signals.push({
+        tone: statusTone,
+        title: tr('Status operacional', 'Operational status'),
+        value: displayedFlight.statusRaw,
+        detail: statusTone === 'danger'
+          ? tr('O status atual já sugere impacto operacional no voo.', 'The current status already suggests operational impact on this flight.')
+          : tr('O status atual ainda indica operação estável.', 'The current status still indicates a stable operation.'),
+      });
+    }
+
+    signals.push({
+      tone: selectedDelayChance.percent >= 70 ? 'danger' : selectedDelayChance.percent >= 40 ? 'warn' : 'ok',
+      title: tr('Leitura da previsão', 'Forecast reading'),
+      value: `${selectedDelayChance.percent}%`,
+      detail: tr(
+        `Classificação atual: ${trProbability(selectedDelayChance.label)}.`,
+        `Current classification: ${trProbability(selectedDelayChance.label)}.`
+      ),
+    });
+
+    signals.push({
+      tone: progressPercent >= 85 ? 'ok' : progressPercent >= 45 ? 'warn' : 'danger',
+      title: tr('Fase do voo', 'Flight phase'),
+      value: `${progressPercent}%`,
+      detail: progressPercent >= 85
+        ? tr('O voo já percorreu quase toda a rota, reduzindo incerteza.', 'The flight has already covered most of the route, reducing uncertainty.')
+        : progressPercent >= 45
+          ? tr('O voo está em fase intermediária, com risco moderado de ajuste.', 'The flight is mid-route, with moderate room for adjustments.')
+          : tr('O voo ainda está em fase inicial, com mais margem para variações.', 'The flight is still in an early phase, with more room for variation.'),
+    });
+
+    signals.push({
+      tone: weatherIsUnstable ? 'warn' : 'ok',
+      title: tr('Clima da rota', 'Route weather'),
+      value: weatherIsUnstable ? tr('Instável', 'Unstable') : tr('Estável', 'Stable'),
+      detail: weatherIsUnstable
+        ? tr('Condições na origem ou no destino podem aumentar a chance de ajuste.', 'Conditions at origin or destination can increase the chance of adjustments.')
+        : tr('Origem e destino estão com leitura climática mais favorável.', 'Origin and destination currently show more favorable weather.'),
+    });
+
+    if (flightHistory) {
+      signals.push({
+        tone: historyRate >= 35 ? 'danger' : historyRate >= 18 ? 'warn' : 'ok',
+        title: tr('Histórico da rota', 'Route history'),
+        value: `${historyRate}%`,
+        detail: historyRate >= 35
+          ? tr('A rota tem histórico forte de atrasos nos últimos 90 dias.', 'This route has shown a strong delay history over the last 90 days.')
+          : historyRate >= 18
+            ? tr('Há oscilação recente nessa rota, então vale atenção.', 'There has been recent volatility on this route, so attention is warranted.')
+            : tr('O histórico recente da rota é relativamente saudável.', 'The recent history of this route is relatively healthy.'),
+      });
+    }
+
+    signals.push({
+      tone: displayedFlight?.source === 'local' ? 'warn' : 'ok',
+      title: tr('Fonte usada', 'Source used'),
+      value: sourceLabel,
+      detail: displayedFlight?.source === 'local'
+        ? tr('Parte dos dados está vindo de fallback local.', 'Part of the data is currently coming from local fallback.')
+        : tr('A leitura está sendo apoiada por fonte ao vivo.', 'The reading is currently supported by live-source data.'),
+    });
+
+    return signals.slice(0, 5);
+  }, [displayedFlight, selectedDelayChance, liveMeta?.source, flightHistory, flightWeather, tr]);
   const parseBRDate = (value) => {
     const [dd, mm, yyyy] = String(value || '').split('/').map(Number);
     if (!dd || !mm || !yyyy) return null;
@@ -1898,7 +2089,7 @@ function advanceFlightProgress(flight) {
     }
   }
 
-  async function encerrarSessao(id) {
+	  async function encerrarSessao(id) {
     setSecurityBusy(true);
     try {
       const resp = await api.post(`/auth/sessions/${id}/revoke`);
@@ -1910,11 +2101,53 @@ function advanceFlightProgress(flight) {
     } finally {
       setSecurityBusy(false);
     }
-  }
+	  }
+	
+	  async function carregarConsentimentosLGPD() {
+	    if (!token) return;
+	    try {
+	      const resp = await api.get('/auth/lgpd/consents');
+	      const items = Array.isArray(resp?.data?.items) ? resp.data.items : [];
+	      const next = {};
+	      const dates = {};
+	      items.forEach((item) => {
+	        const key = String(item?.tipo || '').toUpperCase();
+	        if (!key) return;
+	        next[key] = Boolean(item.concedido);
+	        dates[key] = item.data_hora || null;
+	      });
+	      setLgpdConsents(next);
+	      setLgpdConsentDates(dates);
+	    } catch (err) {
+	      handleSecurityApiError(err, 'Erro ao carregar consentimentos LGPD.', 'Error loading LGPD consents.');
+	    }
+	  }
 
-  async function solicitarLGPD() {
-    setSecurityBusy(true);
-    try {
+	  async function atualizarConsentimentoLGPD(tipo, concedido) {
+	    if (!requireAuthenticatedAction()) return;
+	    setSecurityBusy(true);
+	    try {
+	      const resp = await api.post('/auth/lgpd/consents', { tipo, concedido });
+	      setLgpdConsents((prev) => ({ ...prev, [tipo]: concedido }));
+	      setLgpdConsentDates((prev) => ({ ...prev, [tipo]: new Date().toISOString() }));
+	      setSecurityFeedback(resp?.data?.message || tr('Consentimento LGPD atualizado.', 'LGPD consent updated.'));
+	      addAudit(
+	        concedido ? 'Consentimento LGPD concedido' : 'Consentimento LGPD revogado',
+	        concedido ? 'LGPD consent granted' : 'LGPD consent revoked',
+	        tipo,
+	        concedido ? 'ok' : 'warn'
+	      );
+	    } catch (err) {
+	      handleSecurityApiError(err, 'Erro ao atualizar consentimento LGPD.', 'Error updating LGPD consent.');
+	    } finally {
+	      setSecurityBusy(false);
+	    }
+	  }
+
+	  async function solicitarLGPD() {
+	    if (!requireAuthenticatedAction()) return;
+	    setSecurityBusy(true);
+	    try {
       const resp = await api.post('/auth/lgpd/request', {
         tipo: lgpdTipo,
         detalhes: lgpdDetalhes,
@@ -1922,18 +2155,19 @@ function advanceFlightProgress(flight) {
       setSecurityFeedback(resp?.data?.message || tr('Solicitação LGPD registrada.', 'LGPD request submitted.'));
       addAudit('Solicitação LGPD', 'LGPD request', `${lgpdTipo}`, 'info');
       setLgpdDetalhes('');
-    } catch (err) {
-      setSecurityFeedback(err?.response?.data?.error || tr('Erro ao registrar solicitação LGPD.', 'Error submitting LGPD request.'));
-    } finally {
-      setSecurityBusy(false);
-    }
+	    } catch (err) {
+	      handleSecurityApiError(err, 'Erro ao registrar solicitação LGPD.', 'Error submitting LGPD request.');
+	    } finally {
+	      setSecurityBusy(false);
+	    }
   }
 
-  useEffect(() => {
-    if (activeSection !== 'configuracoes' || !token) return;
-    carregar2FA();
-    carregarSessoes();
-  }, [activeSection, token]);
+	  useEffect(() => {
+	    if (activeSection !== 'configuracoes' || !token) return;
+	    carregar2FA();
+	    carregarSessoes();
+	    carregarConsentimentosLGPD();
+	  }, [activeSection, token]);
 
   useEffect(() => {
     if (!token) {
@@ -1952,19 +2186,34 @@ function advanceFlightProgress(flight) {
         return;
       }
       try {
-        const resp = await api.get(`/voos/live?source=all&limit=${LIVE_FLIGHTS_LIMIT}`);
+        const resp = await api.get(`/voos/live?source=opensky&limit=${LIVE_FLIGHTS_LIMIT}`);
         const items = Array.isArray(resp?.data?.items) ? resp.data.items : [];
         const mapped = items
           .map((item) => mapLiveFlightToMapFlight(item, airportCatalog))
           .filter(Boolean);
+        const nextMeta = resp?.data?.meta || { source: 'local', fallback: 'local' };
+        const mappedHasLiveSource = mapped.some((item) => item?.source && item.source !== 'local');
+        const currentHasLiveSource = mapFlightsRef.current.some((item) => item?.source && item.source !== 'local');
 
         if (cancelled) return;
         if (mapped.length) {
           setMapFlights(mapped);
           setSelectedFlightData(null);
         }
-        setLiveMeta(resp?.data?.meta || { source: 'local', fallback: 'local' });
-        setLiveError('');
+        if (mappedHasLiveSource || !currentHasLiveSource) {
+          setLiveMeta(nextMeta);
+          setLiveError('');
+          return;
+        }
+
+        setLiveMeta((prev) => ({
+          ...prev,
+          cached: nextMeta.cached,
+          updatedAt: nextMeta.updatedAt,
+          errors: nextMeta.errors,
+          fallback: nextMeta.fallback || prev?.fallback || 'local',
+        }));
+        setLiveError('Dados ao vivo indisponiveis agora; mantendo a ultima atualizacao ao vivo.');
       } catch (err) {
         if (cancelled) return;
         const message = err?.response?.data?.error || err?.message || 'Erro ao carregar voos ao vivo';
@@ -2183,15 +2432,11 @@ function advanceFlightProgress(flight) {
               <div class="popup-risco">${loadingRiskLabel}</div>
             </div>`;
           mk.bindPopup(initialHtml).openPopup();
-          setSelectedFlightId(f.id);
-          // set minimal data immediately for snappy UI and mark loading
-          setSelectedFlightData({ ...f, riscoInfo: null, riscoLoading: true });
-          // fetch probability from API
-          const risco = await fetchRisco(f.id, 'tradicional');
-          setSelectedFlightData((prev) => prev ? { ...prev, riscoInfo: risco, riscoLoading: false } : null);
+          const focusResult = await focusFlight(f);
           // update popup content with risco when available
           try {
             const popup = mk.getPopup && mk.getPopup();
+            const risco = focusResult?.riscoInfo;
             if (popup && risco) {
               const newHtml = `
                 <div style="min-width:200px">
@@ -2326,14 +2571,64 @@ function advanceFlightProgress(flight) {
     setSelectedFlightData(null);
   }
 
+  async function fetchFlightDetails(flightId) {
+    try {
+      const resp = await api.get(`/voos/live/detalhe/${encodeURIComponent(flightId)}`);
+      return resp?.data?.item || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function focusFlight(flight) {
+    if (!flight) return;
+    setSelectedFlightId(flight.id);
+    setSelectedFlightData({ ...flight, riscoInfo: null, riscoLoading: true });
+
+    const [risco, detailItem] = await Promise.all([
+      fetchRisco(flight.id, 'tradicional'),
+      fetchFlightDetails(flight.id),
+    ]);
+
+    const mappedDetail = detailItem ? mapLiveFlightToMapFlight(detailItem, airportCatalog) : null;
+    let nextData = null;
+    setSelectedFlightData((prev) => {
+      if (!prev || prev.id !== flight.id) return prev;
+      nextData = {
+        ...(mappedDetail || flight),
+        riscoInfo: risco,
+        riscoLoading: false,
+      };
+      return nextData;
+    });
+    return nextData || {
+      ...(mappedDetail || flight),
+      riscoInfo: risco,
+      riscoLoading: false,
+    };
+  }
+
+  async function focusFlightFromList(flightId) {
+    const flight = flightLookup.get(flightId);
+    if (!flight) return;
+    await focusFlight(flight);
+  }
+
   async function fetchRisco(numero_voo, modelo = 'tradicional') {
     try {
       const resp = await api.get(`/ia/risco-atraso/${numero_voo}?modelo=${modelo}`);
-      const data = resp.data || {};
-      // normalize several possible response shapes to { percent, label }
-      if (data.risco && typeof data.risco === 'object' && (data.risco.percent || data.risco.label)) {
-        return { percent: data.risco.percent ?? data.risco.percentual ?? null, label: data.risco.label ?? null };
-      }
+	      const data = resp.data || {};
+	      // normalize several possible response shapes to { percent, label }
+	      if (data.risco && typeof data.risco === 'object' && (data.risco.percent || data.risco.label)) {
+	        return {
+	          percent: data.risco.percent ?? data.risco.percentual ?? null,
+	          label: data.risco.label ?? null,
+	          explicacao: data.risco.explicacao ?? null,
+	          fatores: Array.isArray(data.risco.fatores) ? data.risco.fatores : [],
+	          confianca: data.risco.confianca ?? null,
+	          modelo: data.risco.modelo ?? modelo,
+	        };
+	      }
       if (typeof data.percent === 'number' || typeof data.percentual === 'number') {
         return { percent: data.percent ?? data.percentual, label: data.label ?? null };
       }
@@ -2900,7 +3195,7 @@ function advanceFlightProgress(flight) {
         {!DEMO_MODE && renderAuthModal()}
 
         {activeSection === 'dashboard' && (
-          <section className="section">
+          <section className={`section ${displayedFlight ? 'section-with-flight-panel' : ''}`}>
             <h2>{tr('Dashboard Operacional', 'Operational Dashboard')}</h2>
             <p className="section-sub">{tr('Visão em tempo real da operação aeroportuária', 'Real-time view of airport operations')}</p>
             <div className="kpi-row">
@@ -2986,13 +3281,16 @@ function advanceFlightProgress(flight) {
               )}
             </div>
 
-            <div className="panel">
-              <div className="panel-head">
-                <h3>{tr('Probabilidade de Atrasos Operacionais', 'Operational Delay Probability')}</h3>
-                <span className={`chip ${picoForecast?.tone || 'warn'}`}>{tr('Pico previsto', 'Forecast peak')}: {picoForecast?.hora} ({picoForecast?.percent || 0}%)</span>
-              </div>
-              <p className="chart-subtitle">{tr('Previsão para as próximas 4 horas', 'Forecast for the next 4 hours')}</p>
-              <div className="prob-chart">
+	              <div className={`panel ${displayedFlight ? 'panel-focus-flight' : ''}`}>
+	                <div className="panel-head">
+	                <h3>{probabilityPanelCopy.title}</h3>
+	                <span className={`chip ${picoForecast?.tone || 'warn'}`}>{probabilityPanelCopy.chip}</span>
+	                </div>
+	              <p className="chart-subtitle">{probabilityPanelCopy.subtitle}</p>
+                {!displayedFlight ? (
+                  <p className="chart-helper">{tr('Selecione um voo no mapa ou na tabela para ver a probabilidade individual.', 'Select a flight on the map or in the table to see its individual probability.')}</p>
+                ) : null}
+	              <div className="prob-chart">
                 <div className="prob-axis">
                   <span>80</span>
                   <span>60</span>
@@ -3047,12 +3345,23 @@ function advanceFlightProgress(flight) {
                     <th scope="col" aria-sort={vooSort.field === 'horario' ? (vooSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}><button className="th-btn" onClick={() => handleSortVoo('horario')}>{tr('Horário', 'Time')}</button></th>
                     <th scope="col" aria-sort={vooSort.field === 'portao' ? (vooSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}><button className="th-btn" onClick={() => handleSortVoo('portao')}>{tr('Portão', 'Gate')}</button></th>
                     <th scope="col" aria-sort={vooSort.field === 'status' ? (vooSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}><button className="th-btn" onClick={() => handleSortVoo('status')}>{tr('Status', 'Status')}</button></th>
-                  </tr></thead>
-                  <tbody>
-                    {voosPaginaAtual.map((v) => (
-                      <tr key={v.numero}>
-                        <td>
-                          <span className="row-icon-badge flight">
+	                  </tr></thead>
+	                  <tbody>
+	                    {voosPaginaAtual.map((v) => (
+	                      <tr
+                          key={v.numero}
+                          className={`table-flight-row ${selectedFlightId === v.numero ? 'selected' : ''}`}
+                          onClick={() => focusFlightFromList(v.numero)}
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              focusFlightFromList(v.numero);
+                            }
+                          }}
+                        >
+	                        <td>
+	                          <span className="row-icon-badge flight">
                             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                               <path d="M2.2 12.8 10.5 11 19 2.5c.8-.8 2-.8 2.8 0 .8.8.8 2 0 2.8L13.3 14l-1.8 8.3-2.3-2.3-3.3.7.7-3.3-2.4-2.4Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
@@ -3434,24 +3743,61 @@ function advanceFlightProgress(flight) {
                       </div>
                     </>
                   )}
-                  {securityView === 'lgpd' && (
-                    <>
-                      <h4>{tr('Solicitação LGPD', 'LGPD Request')}</h4>
-                      <p>{tr('Gere solicitação de exportação ou remoção de dados pessoais.', 'Create a request for personal data export or deletion.')}</p>
-                      <label>
-                        {tr('Tipo da solicitação', 'Request type')}
-                        <select value={lgpdTipo} onChange={(e) => setLgpdTipo(e.target.value)}>
-                          <option value="EXPORTACAO">{tr('Exportação de dados', 'Data export')}</option>
-                          <option value="EXCLUSAO">{tr('Exclusão de dados', 'Data deletion')}</option>
-                        </select>
-                      </label>
-                      <label>
-                        {tr('Detalhes (opcional)', 'Details (optional)')}
-                        <input value={lgpdDetalhes} onChange={(e) => setLgpdDetalhes(e.target.value)} placeholder={tr('Informe contexto ou observações', 'Provide context or notes')} />
-                      </label>
-                      <button className="btn primary small" onClick={solicitarLGPD} disabled={securityBusy}>{tr('Enviar solicitação', 'Submit request')}</button>
-                    </>
-                  )}
+	                  {securityView === 'lgpd' && (
+	                    <>
+	                      <h4>{tr('Central LGPD', 'LGPD Center')}</h4>
+	                      <p>{tr('Gerencie consentimentos, finalidade de uso dos dados e solicitações previstas no Art. 18 da LGPD.', 'Manage consents, data usage purpose and requests under LGPD Article 18.')}</p>
+	                      {!token ? (
+	                        <div className="lgpd-login-notice">
+	                          <strong>{tr('Login necessario', 'Sign in required')}</strong>
+	                          <p>{tr('Entre na sua conta para salvar consentimentos e registrar solicitacoes no banco SPEC.', 'Sign in to save consents and register requests in the SPEC database.')}</p>
+	                          <button className="btn primary small" onClick={() => { setModoAuth('login'); setLoginOpen(true); }}>
+	                            {tr('Entrar agora', 'Sign in now')}
+	                          </button>
+	                        </div>
+	                      ) : null}
+	                      <div className="lgpd-purpose-grid">
+	                        {LGPD_PURPOSES.map((purpose) => {
+	                          const active = !!lgpdConsents[purpose.key];
+	                          const lastDate = lgpdConsentDates[purpose.key]
+	                            ? new Date(lgpdConsentDates[purpose.key]).toLocaleString(idioma === 'en' ? 'en-US' : 'pt-BR')
+	                            : tr('Sem registro', 'No record');
+	                          return (
+	                            <article className={`lgpd-purpose ${active ? 'active' : ''}`} key={purpose.key}>
+	                              <div>
+	                                <strong>{idioma === 'en' ? purpose.titleEn : purpose.titlePt}</strong>
+	                                <p>{idioma === 'en' ? purpose.descEn : purpose.descPt}</p>
+	                                <small>{tr('Ultima atualizacao', 'Last update')}: {lastDate}</small>
+	                              </div>
+	                              <button
+	                                className={`btn small ${active ? 'ghost' : 'primary'}`}
+	                                onClick={() => atualizarConsentimentoLGPD(purpose.key, !active)}
+	                                disabled={securityBusy || !token}
+	                              >
+	                                {active ? tr('Revogar', 'Revoke') : tr('Conceder', 'Grant')}
+	                              </button>
+	                            </article>
+	                          );
+	                        })}
+	                      </div>
+	                      <div className="lgpd-request-box">
+	                        <h5>{tr('Solicitação de direitos do titular', 'Data subject request')}</h5>
+	                        <p>{tr('Registre pedido de exportação ou exclusão para demonstrar o fluxo LGPD no banco SPEC.', 'Register export or deletion requests to demonstrate the LGPD flow in the SPEC database.')}</p>
+	                        <label>
+	                          {tr('Tipo da solicitação', 'Request type')}
+	                          <select value={lgpdTipo} onChange={(e) => setLgpdTipo(e.target.value)}>
+	                            <option value="EXPORTACAO">{tr('Exportação de dados', 'Data export')}</option>
+	                            <option value="EXCLUSAO">{tr('Exclusão de dados', 'Data deletion')}</option>
+	                          </select>
+	                        </label>
+	                        <label>
+	                          {tr('Detalhes (opcional)', 'Details (optional)')}
+	                          <input value={lgpdDetalhes} onChange={(e) => setLgpdDetalhes(e.target.value)} placeholder={tr('Informe contexto ou observações', 'Provide context or notes')} />
+	                        </label>
+	                        <button className="btn primary small" onClick={solicitarLGPD} disabled={securityBusy || !token}>{tr('Enviar solicitação', 'Submit request')}</button>
+	                      </div>
+	                    </>
+	                  )}
                   {securityView === 'auditoria' && (
                     <>
                       <h4>{tr('Trilha de auditoria', 'Audit trail')}</h4>
@@ -3551,18 +3897,46 @@ function advanceFlightProgress(flight) {
                           </div>
                         </div>
                       </div>
-                      {displayedFlight?.riscoLoading ? (
-                        <div className="probability"><span className="spinner" /> {tr('Carregando...', 'Loading...')}</div>
-                      ) : (
-                        <div className="probability">
-                          {tr('Chance de atraso', 'Delay chance')}: <strong>{selectedDelayChance?.percent ?? 0}%</strong>
-                          {selectedDelayChance ? <span className={`prob-label ${selectedDelayChance.tone}`}> · {trProbability(selectedDelayChance.label)}</span> : null}
-                          {displayedFlight?.riscoInfo?.label ? <span className="prob-label"> — {displayedFlight.riscoInfo.label}</span> : null}
-                          {displayedFlight?.riscoInfo?.explicacao ? (
-                            <div className="risk-explain">{displayedFlight.riscoInfo.explicacao}</div>
-                          ) : null}
-                        </div>
-                      )}
+	                      {displayedFlight?.riscoLoading ? (
+	                        <div className="probability"><span className="spinner" /> {tr('Carregando...', 'Loading...')}</div>
+	                      ) : (
+	                        <div className="probability">
+                              <div className="probability-summary">
+                                <span className="probability-kicker">{tr('Chance de atraso', 'Delay chance')}</span>
+                                <div className="probability-main">
+                                  <strong>{selectedDelayChance?.percent ?? 0}%</strong>
+                                  {selectedDelayChance ? <span className={`prob-label ${selectedDelayChance.tone}`}>{trProbability(selectedDelayChance.label)}</span> : null}
+                                  {displayedFlight?.riscoInfo?.label ? <span className="prob-label neutral">{displayedFlight.riscoInfo.label}</span> : null}
+                                </div>
+                              </div>
+	                          {displayedFlight?.riscoInfo?.explicacao ? (
+	                            <div className="risk-explain">{displayedFlight.riscoInfo.explicacao}</div>
+	                          ) : null}
+		                          {riskSignals.length ? (
+		                            <div className="risk-signals">
+		                              {riskSignals.map((signal) => (
+	                                <article key={`${displayedFlight.id}-${signal.title}`} className={`risk-signal ${signal.tone}`}>
+	                                  <div className="risk-signal-head">
+	                                    <span className="risk-signal-title">{signal.title}</span>
+	                                    <strong>{signal.value}</strong>
+                                      </div>
+	                                  <p>{signal.detail}</p>
+	                                </article>
+		                              ))}
+		                            </div>
+		                          ) : null}
+	                              {Array.isArray(displayedFlight?.riscoInfo?.fatores) && displayedFlight.riscoInfo.fatores.length ? (
+	                                <div className="ai-factors">
+	                                  <strong>{tr('Fatores da IA preditiva', 'Predictive AI factors')}</strong>
+	                                  {displayedFlight.riscoInfo.fatores.slice(0, 5).map((fator) => (
+	                                    <span key={`${fator.nome}-${fator.peso}`}>
+	                                      {fator.nome}: {fator.evidencia}
+	                                    </span>
+	                                  ))}
+	                                </div>
+	                              ) : null}
+	                        </div>
+	                      )}
                     </div>
                   </div>
                     <small className="progress-percent">{Math.round(displayedFlight.progress * 100)}% {tr('completo', 'complete')}</small>
