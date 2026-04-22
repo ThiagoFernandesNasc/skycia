@@ -61,13 +61,69 @@ CREATE TABLE IF NOT EXISTS voo (
   FOREIGN KEY (destino_id) REFERENCES aeroporto(id) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
--- Tarifas
-CREATE TABLE IF NOT EXISTS tarifa (
+-- Persistencia do estado ao vivo dos voos
+CREATE TABLE IF NOT EXISTS voo_live_estado (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  voo_id INT NOT NULL,
-  valor DECIMAL(10,2) NOT NULL,
-  quantidade INT NOT NULL,
-  FOREIGN KEY (voo_id) REFERENCES voo(id) ON DELETE CASCADE ON UPDATE CASCADE
+  flight_key VARCHAR(32) NOT NULL,
+  numero_voo VARCHAR(32) NULL,
+  callsign VARCHAR(32) NULL,
+  companhia VARCHAR(120) NULL,
+  aeronave VARCHAR(120) NULL,
+  origem VARCHAR(120) NULL,
+  destino VARCHAR(120) NULL,
+  latitude DECIMAL(10,6) NULL,
+  longitude DECIMAL(10,6) NULL,
+  altitude_pes INT NULL,
+  velocidade_kmh INT NULL,
+  rumo_graus DECIMAL(8,2) NULL,
+  status VARCHAR(40) NULL,
+  horario_partida DATETIME NULL,
+  horario_chegada DATETIME NULL,
+  portao_partida VARCHAR(20) NULL,
+  portao_chegada VARCHAR(20) NULL,
+  terminal_partida VARCHAR(20) NULL,
+  terminal_chegada VARCHAR(20) NULL,
+  fonte VARCHAR(30) NULL,
+  fallback_fonte VARCHAR(30) NULL,
+  atualizado_api_em DATETIME NULL,
+  persistido_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  payload_json JSON NULL,
+  UNIQUE KEY uq_voo_live_estado_flight_key (flight_key),
+  KEY idx_voo_live_estado_numero_voo (numero_voo),
+  KEY idx_voo_live_estado_status (status),
+  KEY idx_voo_live_estado_atualizado (atualizado_api_em)
+);
+
+-- Historico de snapshots dos voos ao vivo
+CREATE TABLE IF NOT EXISTS voo_live_snapshot (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  flight_key VARCHAR(32) NOT NULL,
+  numero_voo VARCHAR(32) NULL,
+  callsign VARCHAR(32) NULL,
+  companhia VARCHAR(120) NULL,
+  aeronave VARCHAR(120) NULL,
+  origem VARCHAR(120) NULL,
+  destino VARCHAR(120) NULL,
+  latitude DECIMAL(10,6) NULL,
+  longitude DECIMAL(10,6) NULL,
+  altitude_pes INT NULL,
+  velocidade_kmh INT NULL,
+  rumo_graus DECIMAL(8,2) NULL,
+  status VARCHAR(40) NULL,
+  horario_partida DATETIME NULL,
+  horario_chegada DATETIME NULL,
+  portao_partida VARCHAR(20) NULL,
+  portao_chegada VARCHAR(20) NULL,
+  terminal_partida VARCHAR(20) NULL,
+  terminal_chegada VARCHAR(20) NULL,
+  fonte VARCHAR(30) NULL,
+  fallback_fonte VARCHAR(30) NULL,
+  atualizado_api_em DATETIME NULL,
+  capturado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  payload_json JSON NULL,
+  KEY idx_voo_live_snapshot_flight_key (flight_key),
+  KEY idx_voo_live_snapshot_numero_voo (numero_voo),
+  KEY idx_voo_live_snapshot_capturado (capturado_em)
 );
 
 -- Indices recomendados (idempotente via information_schema)

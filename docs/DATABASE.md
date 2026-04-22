@@ -7,7 +7,8 @@
 ## `sistema_voos` (arquivo `projetoti/operacional.sql`)
 - `aeroporto`
 - `voo`
-- `tarifa`
+- `voo_live_estado`
+- `voo_live_snapshot`
 
 ## `sistema_voos_spec` (arquivo `projetoti/spec.sql`)
 - `usuario`

@@ -4,7 +4,7 @@
 - `frontend` (React + Vite): interface unica com dashboard, mapa, voos, relatorios, configuracoes e chat IA.
 - `projetoti` (Node.js + Express): API REST com autenticacao JWT, consultas operacionais e modulos de IA.
 - MySQL/MariaDB com dois bancos:
-- `sistema_voos`: dados operacionais (aeroportos, voos, tarifas).
+- `sistema_voos`: dados operacionais (aeroportos, voos e persistencia de voos ao vivo).
 - `sistema_voos_spec`: dados de usuarios, seguranca de conta e LGPD.
 
 ## Fluxo principal

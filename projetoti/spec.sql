@@ -80,6 +80,14 @@ SET @schema = DATABASE();
 
 SET @stmt = IF(
   (SELECT COUNT(1) FROM information_schema.statistics
+   WHERE table_schema=@schema AND table_name='consentimento' AND index_name='idx_consentimento_usuario_tipo_id') = 0,
+  'CREATE INDEX idx_consentimento_usuario_tipo_id ON consentimento(usuario_id, tipo, id)',
+  'SELECT 1'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @stmt = IF(
+  (SELECT COUNT(1) FROM information_schema.statistics
    WHERE table_schema=@schema AND table_name='sessao_usuario' AND index_name='idx_sessao_usuario_usuario_ativa_criado') = 0,
   'CREATE INDEX idx_sessao_usuario_usuario_ativa_criado ON sessao_usuario(usuario_id, ativa, criado_em)',
   'SELECT 1'
@@ -88,8 +96,24 @@ PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
 
 SET @stmt = IF(
   (SELECT COUNT(1) FROM information_schema.statistics
+   WHERE table_schema=@schema AND table_name='sessao_usuario' AND index_name='idx_sessao_usuario_usuario_jti_criado') = 0,
+  'CREATE INDEX idx_sessao_usuario_usuario_jti_criado ON sessao_usuario(usuario_id, jti, criado_em)',
+  'SELECT 1'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @stmt = IF(
+  (SELECT COUNT(1) FROM information_schema.statistics
    WHERE table_schema=@schema AND table_name='solicitacao_lgpd' AND index_name='idx_solicitacao_lgpd_usuario_criado') = 0,
   'CREATE INDEX idx_solicitacao_lgpd_usuario_criado ON solicitacao_lgpd(usuario_id, criado_em)',
+  'SELECT 1'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @stmt = IF(
+  (SELECT COUNT(1) FROM information_schema.statistics
+   WHERE table_schema=@schema AND table_name='solicitacao_lgpd' AND index_name='idx_solicitacao_lgpd_status_criado') = 0,
+  'CREATE INDEX idx_solicitacao_lgpd_status_criado ON solicitacao_lgpd(status, criado_em)',
   'SELECT 1'
 );
 PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
