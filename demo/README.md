@@ -196,7 +196,7 @@ Se voces forem apresentar com slides, uma divisao simples para 5 integrantes pod
 
 ## Modo demo
 
-Se quiserem apresentar somente Dashboard + API de voos ao vivo, usem o modo de demonstracao abaixo.
+Se quiserem apresentar a aplicacao em modo demo, mantendo todas as abas exceto Relatorios, usem o modo de demonstracao abaixo.
 
 ### Como apresentar a demo de forma mais profissional
 
@@ -251,8 +251,8 @@ Em vez de apenas abrir telas e executar rotas, o ideal e conduzir a demonstracao
 
 ### Teste rapido
 
-1. Abra `http://localhost:3000/docs` e confirme que so existe `/voos/live`.
-2. Abra `http://localhost:5173` e confirme que so aparece a aba Dashboard.
+1. Abra `http://localhost:3000/docs` e confirme que a documentacao carrega com as rotas principais do backend.
+2. Abra `http://localhost:5173` e confirme que aparecem Dashboard, Voos, Aeronaves e Configuracoes, sem a aba Relatorios.
 3. Acesse `http://localhost:3000/voos/live` e verifique o JSON retornado.
 
 ### Voltar ao normal
