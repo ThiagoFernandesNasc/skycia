@@ -19,6 +19,8 @@
 - `PORT` (opcional)
 - `LLM_PROVIDER` (`gemini` ou `openai`)
 - `GEMINI_API_KEY` e `GEMINI_MODEL` (se usar Gemini)
+- Modelo recomendado para a apresentacao: `GEMINI_MODEL=gemini-2.5-flash`
+- Teste rapido da chave: `cd projetoti && npm run check:gemini`
 
 ## 4) Instalar dependencias
 - Backend: `cd projetoti && npm install`

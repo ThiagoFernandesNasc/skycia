@@ -116,35 +116,67 @@ async function callOpenAI({ model, apiKey, systemPrompt, userPrompt }) {
 }
 
 async function callGemini({ model, apiKey, systemPrompt, userPrompt }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: {
-        role: 'system',
-        parts: [{ text: systemPrompt }],
+  const rawModel = String(model || '').trim();
+  const modelName = /^(models|tunedModels)\//.test(rawModel)
+    ? rawModel
+    : `models/${rawModel}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent`;
+  const timeoutMs = Math.max(5000, Number(process.env.LLM_TIMEOUT_MS || 20000));
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: userPrompt }],
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: systemPrompt }],
         },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-      },
-    }),
-  });
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userPrompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: Number(process.env.LLM_TEMPERATURE || 0.2),
+          maxOutputTokens: Number(process.env.GEMINI_MAX_OUTPUT_TOKENS || 900),
+        },
+      }),
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error(`Gemini excedeu ${timeoutMs}ms`);
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!resp.ok) {
     const txt = await resp.text();
-    throw new Error(`Gemini HTTP ${resp.status}: ${txt}`);
+    let detail = txt;
+    try {
+      const parsed = JSON.parse(txt);
+      detail = parsed?.error?.message || txt;
+    } catch (e) {
+      detail = txt;
+    }
+    throw new Error(`Gemini HTTP ${resp.status}: ${detail}`);
   }
 
   const data = await resp.json();
   const content = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('\n').trim();
-  if (!content) throw new Error('Gemini sem conteúdo de resposta');
+  if (!content) {
+    const blockReason = data?.promptFeedback?.blockReason;
+    const finishReason = data?.candidates?.[0]?.finishReason;
+    const detail = blockReason || finishReason;
+    throw new Error(`Gemini sem conteúdo de resposta${detail ? ` (${detail})` : ''}`);
+  }
   return content;
 }
 
@@ -163,7 +195,7 @@ async function gerarRespostaLLM({ pergunta, historico = [], voos = [], modo = 'e
 
   if (provider === 'gemini' || provider === 'google') {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     if (!apiKey) throw new Error('GEMINI_API_KEY/GOOGLE_API_KEY ausente');
     const resposta = await callGemini({ model, apiKey, systemPrompt, userPrompt });
     return { resposta, provider: 'gemini', model };

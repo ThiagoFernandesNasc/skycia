@@ -17,6 +17,7 @@ Projeto com back-end (Node/Express) e front-end (React/Vite) para analise de ris
 2. Configure o `.env` do back-end:
    - Copie `projetoti/.env.example` para `projetoti/.env`
    - Ajuste credenciais e segredo JWT
+   - Para o chat com Gemini, configure `LLM_PROVIDER=gemini`, `GEMINI_API_KEY` e `GEMINI_MODEL=gemini-2.5-flash`
    - Ajuste `CORS_ORIGIN` para o host do front (ex.: `http://localhost:5173`)
    - Nunca versione o `.env` (use o `.env.example`)
    - Se uma chave/senha vazar, gere outra e substitua
@@ -25,7 +26,7 @@ Projeto com back-end (Node/Express) e front-end (React/Vite) para analise de ris
    - Crie `frontend/.env` com `VITE_API_BASE_URL=http://localhost:3000`
    - O checkbox "Lembrar-me" no login estende a sessão para 7 dias
 
-3. Instale dependencias:
+4. Instale dependencias:
    - `cd projetoti && npm install`
    - `cd frontend && npm install`
 
@@ -39,6 +40,9 @@ Projeto com back-end (Node/Express) e front-end (React/Vite) para analise de ris
 3. Manual:
    - `cd projetoti && npm run dev`
    - `cd frontend && npm run dev`
+
+4. Testar apenas o Gemini:
+   - `cd projetoti && npm run check:gemini`
 
 ## Observacoes
 - O back-end usa dois bancos:

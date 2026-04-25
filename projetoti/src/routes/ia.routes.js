@@ -93,7 +93,10 @@ router.get('/risco-atraso/:numero_voo', async (req, res) => {
   }
 });
 
-router.use(autenticar);
+router.use((req, res, next) => {
+  if (req.method === 'POST' && req.path === '/chat') return next();
+  return autenticar(req, res, next);
+});
 
 // POST /ia/chat
 // body: { pergunta: string, historico?: Array<{ role: 'user'|'assistant', content: string }> }
@@ -190,30 +193,32 @@ router.post('/chat', async (req, res) => {
       source = 'rules';
     }
 
-    try {
-      await dbSpec.query(
-        `INSERT INTO log_acesso_dado
-          (usuario_id, acao, entidade, detalhes)
-         VALUES (?, ?, ?, ?)`,
-        [
-          req.usuario.id,
-          'CHAT_IA',
-          'ASSISTENTE',
-          JSON.stringify({
-            pergunta,
-            topico: resposta.topico,
-            confianca: resposta.confianca,
-            source,
-            provider,
-            model,
-            totalVoosAvaliados: voosUnificados.length,
-            page,
-            limit,
-          }),
-        ]
-      );
-    } catch (err) {
-      console.error('Falha ao registrar log de chat no SPEC:', err);
+    if (req.usuario?.id) {
+      try {
+        await dbSpec.query(
+          `INSERT INTO log_acesso_dado
+            (usuario_id, acao, entidade, detalhes)
+           VALUES (?, ?, ?, ?)`,
+          [
+            req.usuario.id,
+            'CHAT_IA',
+            'ASSISTENTE',
+            JSON.stringify({
+              pergunta,
+              topico: resposta.topico,
+              confianca: resposta.confianca,
+              source,
+              provider,
+              model,
+              totalVoosAvaliados: voosUnificados.length,
+              page,
+              limit,
+            }),
+          ]
+        );
+      } catch (err) {
+        console.error('Falha ao registrar log de chat no SPEC:', err);
+      }
     }
 
     return res.json({

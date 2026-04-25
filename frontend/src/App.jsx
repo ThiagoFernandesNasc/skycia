@@ -2,7 +2,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { jsPDF } from 'jspdf';
-import api from './api';
+import api, { clearAuthToken, getAuthToken, setAuthToken } from './api';
 import './App.css';
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -1275,7 +1275,7 @@ function advanceFlightProgress(flight) {
   }
 
   function App() {
-  const [token, setToken] = useState(() => !!getStoredSessionFlag());
+  const [token, setToken] = useState(false);
   const [me, setMe] = useState(null);
   const [erro, setErro] = useState('');
   const [email, setEmail] = useState('user1@example.com');
@@ -1633,6 +1633,7 @@ function advanceFlightProgress(flight) {
       } catch (_) {
         if (!cancelled) {
           setMe(null);
+          clearAuthToken();
           setToken(false);
         }
       }
@@ -2524,6 +2525,8 @@ function advanceFlightProgress(flight) {
         }
       }
       if (!resp) throw new Error('login_failed');
+      if (!resp?.data?.token) throw new Error('missing_token');
+      setAuthToken(resp.data.token, !!rememberMe);
       setToken(true);
       const meResp = await api.get('/auth/me');
       setMe(meResp.data);
@@ -2557,6 +2560,7 @@ function advanceFlightProgress(flight) {
     } catch (_) {
       // ignore
     }
+    clearAuthToken();
     setToken(false);
     setMe(null);
     setSenha('');
@@ -2651,6 +2655,17 @@ function advanceFlightProgress(flight) {
     const pergunta = (opts.pergunta ?? chatInput).trim();
     const page = Number(opts.page ?? 1);
     if (!pergunta || chatSending) return;
+
+    if (!token && !getAuthToken()) {
+      setModoAuth('login');
+      setLoginOpen(true);
+      setChatMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: tr('Faça login para usar o chat IA.', 'Sign in to use the AI chat.'),
+        meta: null,
+      }]);
+      return;
+    }
 
     if (!opts.keepInput) setChatInput('');
     setChatSending(true);
