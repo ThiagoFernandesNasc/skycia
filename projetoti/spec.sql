@@ -22,6 +22,17 @@ SET @stmt = IF(
 );
 PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
 
+-- Garantir perfis atuais em bancos SPEC criados antes da inclusão de PASSAGEIRO
+ALTER TABLE usuario
+  MODIFY perfil ENUM('ADMIN','OPERADOR','CIA','VISUALIZADOR','PASSAGEIRO') NOT NULL DEFAULT 'OPERADOR';
+
+UPDATE usuario
+SET perfil = 'PASSAGEIRO'
+WHERE perfil = 'VISUALIZADOR';
+
+ALTER TABLE usuario
+  MODIFY perfil ENUM('ADMIN','OPERADOR','CIA','PASSAGEIRO') NOT NULL DEFAULT 'OPERADOR';
+
 -- LGPD: consentimentos
 CREATE TABLE IF NOT EXISTS consentimento (
   id INT AUTO_INCREMENT PRIMARY KEY,

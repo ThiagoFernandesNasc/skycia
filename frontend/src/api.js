@@ -2,8 +2,17 @@ import axios from "axios";
 
 const AUTH_TOKEN_STORAGE_KEY = "auth_bearer_token";
 
+function resolveApiBaseUrl() {
+  const configured = import.meta.env.VITE_API_BASE_URL;
+  const isLocalConfigured = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(configured || "");
+
+  if (configured && (import.meta.env.DEV || !isLocalConfigured)) return configured;
+  if (import.meta.env.DEV) return "http://localhost:3000";
+  return window.location.origin;
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000",
+  baseURL: resolveApiBaseUrl(),
   withCredentials: true,
 });
 

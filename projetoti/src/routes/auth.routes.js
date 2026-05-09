@@ -12,6 +12,40 @@ let securityTablesReady = false;
 async function ensureSecurityTables() {
   if (securityTablesReady) return;
   await dbSpec.query(
+    `CREATE TABLE IF NOT EXISTS usuario (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      nome VARCHAR(100) NOT NULL,
+      email VARCHAR(120) NOT NULL UNIQUE,
+      senha_hash VARCHAR(255) NOT NULL,
+      perfil ENUM('ADMIN','OPERADOR','CIA','PASSAGEIRO') NOT NULL DEFAULT 'OPERADOR',
+      companhia VARCHAR(120) NULL,
+      criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`
+  );
+  await dbSpec.query(
+    `ALTER TABLE usuario
+     MODIFY perfil ENUM('ADMIN','OPERADOR','CIA','VISUALIZADOR','PASSAGEIRO') NOT NULL DEFAULT 'OPERADOR'`
+  );
+  await dbSpec.query(
+    `UPDATE usuario SET perfil = 'PASSAGEIRO' WHERE perfil = 'VISUALIZADOR'`
+  );
+  await dbSpec.query(
+    `ALTER TABLE usuario
+     MODIFY perfil ENUM('ADMIN','OPERADOR','CIA','PASSAGEIRO') NOT NULL DEFAULT 'OPERADOR'`
+  );
+  const [companhiaColumns] = await dbSpec.query(
+    `SELECT COUNT(1) AS total
+     FROM information_schema.columns
+     WHERE table_schema = DATABASE()
+       AND table_name = 'usuario'
+       AND column_name = 'companhia'`
+  );
+  if (!companhiaColumns[0]?.total) {
+    await dbSpec.query(
+      `ALTER TABLE usuario ADD COLUMN companhia VARCHAR(120) NULL AFTER perfil`
+    );
+  }
+  await dbSpec.query(
     `CREATE TABLE IF NOT EXISTS consentimento (
       id INT AUTO_INCREMENT PRIMARY KEY,
       usuario_id INT NOT NULL,
@@ -74,11 +108,16 @@ router.post('/register', async (req, res) => {
   if (!nome || !email || !senha) {
     return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
   }
-  if (perfil === 'CIA' && !companhia) {
+  const allowedProfiles = ['ADMIN', 'OPERADOR', 'CIA', 'PASSAGEIRO'];
+  const normalizedProfile = allowedProfiles.includes(String(perfil || '').toUpperCase())
+    ? String(perfil).toUpperCase()
+    : 'OPERADOR';
+  if (normalizedProfile === 'CIA' && !companhia) {
     return res.status(400).json({ error: 'Companhia é obrigatória para perfil CIA' });
   }
 
   try {
+    await ensureSecurityTables();
     const [existe] = await dbSpec.query(
       'SELECT id FROM usuario WHERE email = ?',
       [email]
@@ -93,14 +132,14 @@ router.post('/register', async (req, res) => {
       await dbSpec.query(
         `INSERT INTO usuario (nome, email, senha_hash, perfil, companhia)
          VALUES (?, ?, ?, ?, ?)`,
-        [nome, email, hash, perfil || 'OPERADOR', companhia || null]
+        [nome, email, hash, normalizedProfile, companhia || null]
       );
     } catch (insertErr) {
       if (insertErr.code === 'ER_BAD_FIELD_ERROR') {
         await dbSpec.query(
           `INSERT INTO usuario (nome, email, senha_hash, perfil)
            VALUES (?, ?, ?, ?)`,
-          [nome, email, hash, perfil || 'OPERADOR']
+          [nome, email, hash, normalizedProfile]
         );
       } else {
         throw insertErr;

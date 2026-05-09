@@ -7,8 +7,8 @@ const openApiSpec = {
   },
   servers: [
     {
-      url: 'http://localhost:3000',
-      description: 'Servidor local',
+      url: '/',
+      description: 'Mesma origem da documentação',
     },
   ],
   tags: [

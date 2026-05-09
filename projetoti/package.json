@@ -4,8 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node scripts/validate-quality.js",
+    "validate:quality": "node scripts/validate-quality.js",
     "check:gemini": "node scripts/check-gemini.js",
+    "start": "node src/server.js",
     "dev": "nodemon src/server.js"
   },
   "keywords": [],

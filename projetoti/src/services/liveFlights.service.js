@@ -704,14 +704,79 @@ function mergeFlights(items) {
   return [...new Set(byId.values())];
 }
 
-function applyFilters(items, { status, limit }) {
+function sortByUpdatedAtDesc(items) {
+  return [...items].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+}
+
+function applyBalancedSourceLimit(items, limit) {
+  const mergedSources = sortByUpdatedAtDesc(items).filter((item) => String(item?.source || '').toLowerCase() === 'all');
+  const liveSources = ['opensky', 'aerodatabox'];
+  const buckets = new Map(liveSources.map((source) => [source, []]));
+  const others = [];
+  const selected = [];
+  const selectedIds = new Set();
+
+  mergedSources.forEach((item) => {
+    if (selected.length >= limit) return;
+    const id = canonicalFlightKey(item);
+    if (id && selectedIds.has(id)) return;
+    if (id) selectedIds.add(id);
+    selected.push(item);
+  });
+
+  sortByUpdatedAtDesc(items).forEach((item) => {
+    const source = String(item?.source || '').toLowerCase();
+    if (source === 'all') return;
+    if (buckets.has(source)) buckets.get(source).push(item);
+    else others.push(item);
+  });
+
+  const activeBuckets = [...buckets.values()].filter((bucket) => bucket.length);
+  if (activeBuckets.length < 2) {
+    return [...selected, ...sortByUpdatedAtDesc(items).filter((item) => String(item?.source || '').toLowerCase() !== 'all')].slice(0, limit);
+  }
+
+  let cursor = 0;
+
+  while (selected.length < limit && activeBuckets.some((bucket) => cursor < bucket.length)) {
+    for (const bucket of activeBuckets) {
+      const item = bucket[cursor];
+      if (!item) continue;
+      const id = canonicalFlightKey(item);
+      if (id && selectedIds.has(id)) continue;
+      if (id) selectedIds.add(id);
+      selected.push(item);
+      if (selected.length >= limit) break;
+    }
+    cursor += 1;
+  }
+
+  if (selected.length < limit) {
+    sortByUpdatedAtDesc([...items, ...others]).forEach((item) => {
+      const id = canonicalFlightKey(item);
+      if (id && selectedIds.has(id)) return;
+      if (id) selectedIds.add(id);
+      selected.push(item);
+    });
+  }
+
+  return selected.slice(0, limit);
+}
+
+function countSources(items) {
+  return items.reduce((acc, item) => {
+    const source = String(item?.source || 'desconhecida').toLowerCase();
+    acc[source] = (acc[source] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function applyFilters(items, { status, limit, balanceSources = false }) {
   let out = items;
   if (status) {
     out = out.filter((item) => String(item.status || '').toLowerCase().includes(status));
   }
-  out = out
-    .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
-    .slice(0, limit);
+  out = balanceSources ? applyBalancedSourceLimit(out, limit) : sortByUpdatedAtDesc(out).slice(0, limit);
   return out;
 }
 
@@ -843,6 +908,80 @@ function normalizeLiveFlightRecord(item, meta) {
     atualizadoApiEm: toSqlDateTime(item.updatedAt),
     payloadJson: JSON.stringify(item),
   };
+}
+
+function parsePayloadJson(raw) {
+  if (!raw) return null;
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch (_) {
+    return null;
+  }
+}
+
+function liveRowToFlight(row) {
+  if (!row) return null;
+  const payload = parsePayloadJson(row.payload_json);
+  if (payload) return payload;
+
+  return {
+    id: firstString(row.numero_voo, row.flight_key),
+    callsign: firstString(row.callsign),
+    airline: firstString(row.companhia),
+    aircraft: firstString(row.aeronave),
+    origin: firstString(row.origem),
+    destination: firstString(row.destino),
+    lat: parseNumber(row.latitude),
+    lng: parseNumber(row.longitude),
+    altitude: parseNumber(row.altitude_pes),
+    speed: parseNumber(row.velocidade_kmh),
+    heading: parseNumber(row.rumo_graus),
+    status: firstString(row.status),
+    departureTime: row.horario_partida ? new Date(row.horario_partida).toISOString() : null,
+    arrivalTime: row.horario_chegada ? new Date(row.horario_chegada).toISOString() : null,
+    departureGate: firstString(row.portao_partida),
+    arrivalGate: firstString(row.portao_chegada),
+    departureTerminal: firstString(row.terminal_partida),
+    arrivalTerminal: firstString(row.terminal_chegada),
+    source: firstString(row.fonte),
+    updatedAt: row.atualizado_api_em ? new Date(row.atualizado_api_em).toISOString() : new Date(row.persistido_em || Date.now()).toISOString(),
+  };
+}
+
+async function enrichFlightsWithPersistedComplements(items) {
+  if (!Array.isArray(items) || !items.length) return items;
+  await ensureLivePersistenceSchema();
+
+  const enriched = [];
+  for (const item of items) {
+    const aliases = getFlightIdentityKeys(item);
+    if (!aliases.length) {
+      enriched.push(item);
+      continue;
+    }
+
+    const placeholders = aliases.map(() => '?').join(', ');
+    const [rows] = await db.query(
+      `
+      SELECT *
+      FROM voo_live_estado
+      WHERE flight_key IN (${placeholders})
+         OR UPPER(REPLACE(COALESCE(numero_voo, ''), ' ', '')) IN (${placeholders})
+         OR UPPER(REPLACE(COALESCE(callsign, ''), ' ', '')) IN (${placeholders})
+      ORDER BY COALESCE(atualizado_api_em, persistido_em) DESC
+      LIMIT 6
+      `,
+      [...aliases, ...aliases, ...aliases]
+    );
+
+    const merged = (rows || [])
+      .map(liveRowToFlight)
+      .filter(Boolean)
+      .reduce((acc, current) => pickBestFlight(acc, current), item);
+    enriched.push(merged);
+  }
+
+  return mergeFlights(enriched);
 }
 
 async function persistLiveFlights(items, meta) {
@@ -1185,18 +1324,20 @@ async function getLiveFlights({ limit, source, status } = {}) {
       console.warn(`[liveFlights] AeroDataBox indisponivel: ${error.message}`);
     }
   } else {
-    const results = await Promise.allSettled([fetchOpenSkyFlights(), fetchAeroDataBoxFlights()]);
-    const openskyOk = results[0].status === 'fulfilled';
-    const aeroOk = results[1].status === 'fulfilled';
-    const openskyFlights = openskyOk ? results[0].value : [];
-    const aeroFlights = aeroOk ? results[1].value : [];
+    let openskyFlights = [];
+    let aeroFlights = [];
 
-    if (!openskyOk) {
-      sourceErrors.opensky = results[0].reason?.message || String(results[0].reason);
+    try {
+      openskyFlights = await fetchOpenSkyFlights();
+    } catch (error) {
+      sourceErrors.opensky = error.message;
       console.warn(`[liveFlights] OpenSky indisponivel: ${sourceErrors.opensky}`);
     }
-    if (!aeroOk) {
-      sourceErrors.aerodatabox = results[1].reason?.message || String(results[1].reason);
+
+    try {
+      aeroFlights = await fetchAeroDataBoxFlights();
+    } catch (error) {
+      sourceErrors.aerodatabox = error.message;
       console.warn(`[liveFlights] AeroDataBox indisponivel: ${sourceErrors.aerodatabox}`);
     }
 
@@ -1220,11 +1361,25 @@ async function getLiveFlights({ limit, source, status } = {}) {
     console.warn('[liveFlights] Fallback local aplicado');
   }
 
-  const items = applyFilters(merged, normalized);
+  if (sourceUsed !== 'local') {
+    try {
+      merged = await enrichFlightsWithPersistedComplements(merged);
+      if (merged.some((item) => item?.source === 'all')) sourceUsed = 'all';
+    } catch (error) {
+      sourceErrors.enrichment = error.message;
+      console.warn(`[liveFlights] enriquecimento por fonte complementar falhou: ${error.message}`);
+    }
+  }
+
+  const items = applyFilters(merged, {
+    ...normalized,
+    balanceSources: normalized.source === 'all' && sourceUsed === 'all',
+  });
   const payload = {
     items,
     meta: {
       source: sourceUsed,
+      sources: countSources(items),
       fallback,
       cached: false,
       total: items.length,

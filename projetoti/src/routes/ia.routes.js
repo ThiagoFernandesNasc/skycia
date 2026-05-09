@@ -5,7 +5,26 @@ const dbSpec = require('./dbSpec');
 const { autenticar } = require('../middlewares/auth.middleware');
 const { calcularRiscoAtraso, gerarRespostaAssistente } = require('../services/ia.service');
 const { gerarRespostaLLM } = require('../services/llm.service');
+const { getPersistedLiveFlights } = require('../services/liveFlights.service');
 const DEMO_MODE = process.env.DEMO_MODE === 'true';
+
+function normalizarVooChat(v) {
+  const origem = String(v?.origem || v?.origem_cidade || '').trim();
+  const destino = String(v?.destino || v?.destino_cidade || '').trim();
+  const numero = String(v?.numero_voo || v?.callsign || v?.flight_key || '').trim();
+
+  return {
+    numero_voo: numero,
+    companhia: String(v?.companhia || v?.fonte || '').trim(),
+    horario_previsto: v?.horario_previsto || v?.horario_partida || v?.horario_chegada || v?.atualizado_api_em || null,
+    status: String(v?.status || '').trim(),
+    preco_medio: Number(v?.preco_medio || 0),
+    origem_cidade: origem,
+    origem_estado: String(v?.origem_estado || '').trim(),
+    destino_cidade: destino,
+    destino_estado: String(v?.destino_estado || '').trim(),
+  };
+}
 
 // GET /ia/risco-atraso/:numero_voo?modelo=tradicional|generativa
 router.get('/risco-atraso/:numero_voo', async (req, res) => {
@@ -107,7 +126,7 @@ router.post('/chat', async (req, res) => {
   const modo = req.body?.modo === 'tecnico' ? 'tecnico' : 'executivo';
   const page = Number(req.body?.page || 1);
   const limit = Number(req.body?.limit || 10);
-  const usarLLM = !DEMO_MODE && req.body?.usarLLM !== false;
+  const usarLLM = !DEMO_MODE && req.body?.usarLLM === true;
   if (!pergunta) return res.status(400).json({ error: 'Pergunta obrigatoria' });
 
   try {
@@ -129,22 +148,24 @@ router.post('/chat', async (req, res) => {
       LIMIT 250`
     );
 
+    let voosLive = [];
+    try {
+      const livePayload = await getPersistedLiveFlights({ limit: 250 });
+      voosLive = Array.isArray(livePayload?.items) ? livePayload.items : [];
+    } catch (liveErr) {
+      console.warn('[chatIA] voos ao vivo persistidos indisponiveis:', liveErr.message);
+    }
+
+    const normalizadosLive = voosLive
+      .map(normalizarVooChat)
+      .filter((v) => v.numero_voo);
+
     const normalizadosContexto = voosContexto
-      .map((v) => ({
-        numero_voo: String(v?.numero_voo || '').trim(),
-        companhia: String(v?.companhia || '').trim(),
-        horario_previsto: v?.horario_previsto || null,
-        status: String(v?.status || '').trim(),
-        preco_medio: Number(v?.preco_medio || 0),
-        origem_cidade: String(v?.origem_cidade || '').trim(),
-        origem_estado: String(v?.origem_estado || '').trim(),
-        destino_cidade: String(v?.destino_cidade || '').trim(),
-        destino_estado: String(v?.destino_estado || '').trim(),
-      }))
+      .map(normalizarVooChat)
       .filter((v) => v.numero_voo);
 
     const mergedMap = new Map();
-    [...(voos || []), ...normalizadosContexto].forEach((v) => {
+    [...normalizadosLive, ...normalizadosContexto, ...(voos || [])].forEach((v) => {
       const key = String(v.numero_voo || '').toUpperCase();
       if (!key) return;
       if (!mergedMap.has(key)) mergedMap.set(key, v);
@@ -156,7 +177,19 @@ router.post('/chat', async (req, res) => {
     let provider = null;
     let model = null;
 
-    if (usarLLM) {
+    resposta = gerarRespostaAssistente({
+      pergunta,
+      voos: voosUnificados,
+      historico,
+      usuario: req.usuario || null,
+      modo,
+      page,
+      limit,
+    });
+    source = 'rules';
+
+    const topicosLocais = new Set(['conversa', 'fora_escopo', 'capacidade', 'site']);
+    if (usarLLM && resposta.confianca !== 'alta' && !topicosLocais.has(resposta.topico)) {
       try {
         const llm = await gerarRespostaLLM({
           pergunta,
@@ -178,19 +211,6 @@ router.post('/chat', async (req, res) => {
       } catch (llmErr) {
         console.error('LLM indisponivel, usando fallback:', llmErr.message);
       }
-    }
-
-    if (!resposta) {
-      resposta = gerarRespostaAssistente({
-        pergunta,
-        voos: voosUnificados,
-        historico,
-        usuario: req.usuario || null,
-        modo,
-        page,
-        limit,
-      });
-      source = 'rules';
     }
 
     if (req.usuario?.id) {
