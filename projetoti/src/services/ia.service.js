@@ -130,6 +130,43 @@ function nivelConfianca(score) {
   return 'baixa';
 }
 
+function ehMensagemCurta(q) {
+  return /^(oi|ola|olá|opa|e ai|eai|bom dia|boa tarde|boa noite|tudo bem|td bem|obrigado|obrigada|valeu|vlw)$/.test(q);
+}
+
+function ehConfirmacaoCurta(q) {
+  return /^(sim|s|claro|pode|quero|ok|beleza|blz)$/.test(q);
+}
+
+function ehNegacaoCurta(q) {
+  return /^(nao|não|n|agora nao|agora não)$/.test(q);
+}
+
+function detectarForaDoEscopo(q) {
+  const termosForaEscopo = [
+    'futebol',
+    'receita',
+    'filme',
+    'musica',
+    'música',
+    'clima',
+    'previsao do tempo',
+    'previsão do tempo',
+    'capital da',
+    'historia do brasil',
+    'história do brasil',
+    'piada',
+    'namoro',
+    'bitcoin',
+    'criptomoeda',
+    'programacao',
+    'programação',
+    'codigo',
+    'código',
+  ];
+  return termosForaEscopo.some((termo) => q.includes(normalizar(termo)));
+}
+
 function montarRespostaEstruturada({ modo, resumo, dados, acao, proxima, confianca, paginacao = null }) {
   const conf = confianca[0].toUpperCase() + confianca.slice(1);
   if (modo === 'tecnico') {
@@ -153,26 +190,33 @@ function montarRespostaEstruturada({ modo, resumo, dados, acao, proxima, confian
 
 function classificarIntencao(q, voos) {
   if (!q) return { intent: 'ajuda', score: 0.4 };
+  if (ehMensagemCurta(q) || q.includes('quem e voce') || q.includes('quem é voce') || q.includes('quem é você')) return { intent: 'conversa', score: 0.96 };
+  if (ehConfirmacaoCurta(q)) return { intent: 'confirmacao', score: 0.75 };
+  if (ehNegacaoCurta(q)) return { intent: 'negacao', score: 0.75 };
   if (q.includes('o que voce') || q.includes('pode responder') || q.includes('ajuda')) return { intent: 'capacidade', score: 0.95 };
   if (q.includes('site') || q.includes('dashboard') || q.includes('mapa') || q.includes('login') || q.includes('privacidade') || q.includes('lgpd')) return { intent: 'site', score: 0.9 };
   if (extrairNumeroVoo(q)) return { intent: 'voo_numero', score: 0.97 };
   if (detectarCompanhia(q, voos)) return { intent: 'companhia', score: 0.86 };
-  if (q.includes('restante') || q.includes('todos os voos') || q.includes('listar voos') || q.includes('quais voos') || q.includes('mostre os voos')) return { intent: 'lista_voos', score: 0.9 };
   if (q.includes('atras')) return { intent: 'atrasos', score: 0.93 };
   if (q.includes('cancel')) return { intent: 'cancelados', score: 0.92 };
+  if (q.includes('restante') || q.includes('todos os voos') || q.includes('listar voos') || q.includes('quais voos') || q.includes('mostre os voos')) return { intent: 'lista_voos', score: 0.9 };
   if (q.includes('proximo') || q.includes('decol') || q.includes('partida') || q.includes('hoje')) return { intent: 'proximos', score: 0.84 };
   if (q.includes('nacional') || q.includes('internacional')) return { intent: 'escopo', score: 0.86 };
   if (q.includes('aeroporto') || q.includes('origem') || q.includes('destino')) return { intent: 'aeroportos', score: 0.82 };
   if (q.includes('resumo') || q.includes('geral') || q.includes('status') || q.includes('total')) return { intent: 'resumo', score: 0.8 };
-  return { intent: 'fallback', score: 0.45 };
+  if (detectarForaDoEscopo(q) || q.length >= 8) return { intent: 'fora_escopo', score: 0.9 };
+  return { intent: 'conversa', score: 0.72 };
 }
 
 function montarPerguntaComHistorico(pergunta, historico) {
   const q = normalizar(pergunta);
   if (q.length >= 10 || !Array.isArray(historico) || !historico.length) return q;
+  if (!ehConfirmacaoCurta(q)) return q;
+  const ultimaResposta = [...historico].reverse().find((m) => m && m.role === 'assistant' && m.content)?.content;
   const ultPergunta = [...historico].reverse().find((m) => m && m.role === 'user' && m.content)?.content;
-  if (!ultPergunta) return q;
-  return `${normalizar(ultPergunta)} ${q}`;
+  const contexto = ultimaResposta || ultPergunta;
+  if (!contexto) return q;
+  return `${normalizar(contexto)} ${q}`;
 }
 
 function montarContextoSite() {
@@ -186,6 +230,38 @@ function montarContextoSite() {
 
 function responderPorIntencao({ intent, q, voos, page, limit }) {
   const statusResumo = resumoStatus(voos);
+
+  if (intent === 'conversa') {
+    return {
+      direct: 'Oi! Posso te ajudar com o SkyTrak: resumo dos voos, atrasos, cancelamentos, próximos voos, companhias, aeroportos ou dúvidas rápidas sobre o site.',
+      score: 0.96,
+      topico: 'conversa',
+    };
+  }
+
+  if (intent === 'confirmacao') {
+    return {
+      direct: 'Perfeito. Me diga o que você quer ver agora: voos atrasados, cancelados, próximos voos, resumo geral ou uma companhia específica.',
+      score: 0.75,
+      topico: 'conversa',
+    };
+  }
+
+  if (intent === 'negacao') {
+    return {
+      direct: 'Tudo bem. Quando quiser, posso consultar atrasos, cancelamentos, próximos voos ou explicar alguma parte do site.',
+      score: 0.75,
+      topico: 'conversa',
+    };
+  }
+
+  if (intent === 'fora_escopo') {
+    return {
+      direct: 'Não consigo responder esse assunto aqui. Este chat foi configurado para ajudar apenas com voos, mapa, dashboard, relatórios e uso do SkyTrak.',
+      score: 0.9,
+      topico: 'fora_escopo',
+    };
+  }
 
   if (intent === 'capacidade') {
     return {
@@ -388,6 +464,16 @@ function gerarRespostaAssistente({ pergunta, voos = [], historico = [], usuario 
   const handled = responderPorIntencao({ intent, q, voos, page, limit });
   const confianca = nivelConfianca(handled.score ?? score);
 
+  if (handled.direct) {
+    return {
+      resposta: handled.direct,
+      topico: handled.topico,
+      confianca,
+      sugestoes: ['voos atrasados', 'resumo geral', 'como usar o mapa?'],
+      paginacao: null,
+    };
+  }
+
   const saudacao = usuario?.nome && (intent === 'capacidade' || intent === 'site') ? `${usuario.nome}, ` : '';
   const resposta = montarRespostaEstruturada({
     modo: modo === 'tecnico' ? 'tecnico' : 'executivo',
@@ -406,6 +492,8 @@ function gerarRespostaAssistente({ pergunta, voos = [], historico = [], usuario 
     atrasos: ['próxima página de atrasos', 'voos cancelados', 'atrasos por companhia'],
     cancelados: ['próxima página de cancelados', 'voos atrasados', 'resumo geral'],
     companhia: ['próxima página da companhia', 'somente atrasados da companhia', 'resumo geral'],
+    conversa: ['voos atrasados', 'resumo geral', 'como usar o mapa?'],
+    fora_escopo: ['resumo de voos', 'voos atrasados', 'como usar o site?'],
     fallback: ['resumo de voos', 'listar voos', 'aeroportos mais movimentados'],
   };
 

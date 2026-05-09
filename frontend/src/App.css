@@ -437,6 +437,23 @@
   color: #9ab7e6;
 }
 
+.who.login-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(120, 152, 206, 0.3);
+  border-radius: 999px;
+  padding: 8px 11px;
+  background: #172740;
+  color: #c8dbff;
+  cursor: pointer;
+}
+
+.who.login-chip svg {
+  width: 16px;
+  height: 16px;
+}
+
 .privacy-toggle {
   border: 1px solid rgba(120, 152, 206, 0.3);
   border-radius: 999px;
@@ -2590,6 +2607,101 @@
   align-items: center;
 }
 
+.cookie-preferences {
+  position: absolute;
+  right: 20px;
+  bottom: calc(100% + 10px);
+  width: min(420px, calc(100vw - 40px));
+  border: 1px solid rgba(120, 152, 206, 0.38);
+  border-radius: 8px;
+  background: rgba(10, 20, 38, 0.98);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.38);
+  padding: 16px;
+  color: #d7e7ff;
+}
+
+.cookie-preferences-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.cookie-preferences-head strong {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.cookie-preferences-head p {
+  color: #9db8e5;
+  font-size: 13px;
+  margin: 0;
+}
+
+.cookie-close {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(120, 152, 206, 0.32);
+  border-radius: 8px;
+  background: rgba(23, 38, 66, 0.72);
+  color: #d7e7ff;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.cookie-options {
+  display: grid;
+  gap: 10px;
+}
+
+.cookie-option {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(120, 152, 206, 0.22);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(15, 28, 52, 0.72);
+  cursor: pointer;
+}
+
+.cookie-option.locked {
+  cursor: default;
+  opacity: 0.86;
+}
+
+.cookie-option span {
+  display: grid;
+  gap: 3px;
+}
+
+.cookie-option strong {
+  font-size: 13px;
+}
+
+.cookie-option small {
+  color: #91add9;
+  font-size: 12px;
+}
+
+.cookie-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: #2f7dff;
+  flex: 0 0 auto;
+}
+
+.cookie-preferences-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
 .error {
   color: #ff9e9e;
   font-size: 13px;
@@ -2673,6 +2785,29 @@
 }
 
 @media (max-width: 760px) {
+  .cookie-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cookie-actions,
+  .cookie-preferences-actions {
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+
+  .cookie-actions .btn,
+  .cookie-preferences-actions .btn {
+    flex: 1 1 120px;
+  }
+
+  .cookie-preferences {
+    left: 12px;
+    right: 12px;
+    bottom: calc(100% + 8px);
+    width: auto;
+  }
+
   .flight-modal-backdrop {
     background: rgba(1, 8, 20, 0.7);
     backdrop-filter: blur(6px);

@@ -2,7 +2,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { jsPDF } from 'jspdf';
-import api from './api';
+import api, { clearAuthToken, getAuthToken, setAuthToken } from './api';
 import './App.css';
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -62,12 +62,12 @@ const LGPD_PURPOSES = [
     key: 'IA_GENERATIVA',
     titlePt: 'IA generativa',
     titleEn: 'Generative AI',
-    descPt: 'Uso do contexto enviado pelo usuario para gerar explicacoes e respostas no assistente.',
+    descPt: 'Uso do contexto enviado pelo usuário para gerar explicações e respostas no assistente.',
     descEn: 'User-provided context used to generate explanations and assistant answers.',
   },
   {
     key: 'RELATORIOS',
-    titlePt: 'Relatorios e exportacoes',
+    titlePt: 'Relatórios e exportações',
     titleEn: 'Reports and exports',
     descPt: 'Tratamento de dados para gerar relatorios operacionais e arquivos de acompanhamento.',
     descEn: 'Data processing to generate operational reports and monitoring files.',
@@ -254,7 +254,7 @@ const MAP_FLIGHTS_RAW = [
   {
     id: 'TP8091',
     cia: 'TAP',
-    from: { code: 'GRU', city: 'Sao Paulo', x: 33, y: 66, time: '14:30' },
+    from: { code: 'GRU', city: 'São Paulo', x: 33, y: 66, time: '14:30' },
     to: { code: 'LIS', city: 'Lisboa', x: 47, y: 38, time: '05:45' },
     altitude: '38.000 ft',
     velocidade: '850 km/h',
@@ -269,7 +269,7 @@ const MAP_FLIGHTS_RAW = [
   {
     id: 'LA3502',
     cia: 'LATAM',
-    from: { code: 'GRU', city: 'Sao Paulo', x: 33, y: 66, time: '15:15' },
+    from: { code: 'GRU', city: 'São Paulo', x: 33, y: 66, time: '15:15' },
     to: { code: 'SCL', city: 'Santiago', x: 29, y: 72, time: '18:30' },
     altitude: '36.200 ft',
     velocidade: '822 km/h',
@@ -299,8 +299,8 @@ const MAP_FLIGHTS_RAW = [
   {
     id: 'G31847',
     cia: 'Gol',
-    from: { code: 'CGH', city: 'Sao Paulo', x: 33, y: 66, time: '15:45' },
-    to: { code: 'BSB', city: 'Brasilia', x: 35, y: 62, time: '17:00' },
+    from: { code: 'CGH', city: 'São Paulo', x: 33, y: 66, time: '15:45' },
+    to: { code: 'BSB', city: 'Brasília', x: 35, y: 62, time: '17:00' },
     altitude: '29.500 ft',
     velocidade: '744 km/h',
     aeronave: 'Boeing 737-800',
@@ -315,7 +315,7 @@ const MAP_FLIGHTS_RAW = [
     id: 'AF0456',
     cia: 'Air France',
     from: { code: 'CDG', city: 'Paris', x: 46, y: 33, time: '17:30' },
-    to: { code: 'GRU', city: 'Sao Paulo', x: 33, y: 66, time: '05:10' },
+    to: { code: 'GRU', city: 'São Paulo', x: 33, y: 66, time: '05:10' },
     altitude: '37.400 ft',
     velocidade: '840 km/h',
     aeronave: 'Airbus A350-900',
@@ -405,7 +405,7 @@ const MAP_FLIGHTS_RAW = [
     id: 'SQ0673',
     cia: 'Singapore',
     from: { code: 'SIN', city: 'Singapura', x: 69, y: 58, time: '19:00' },
-    to: { code: 'NRT', city: 'Toquio', x: 82, y: 38, time: '02:30' },
+    to: { code: 'NRT', city: 'Tóquio', x: 82, y: 38, time: '02:30' },
     altitude: '36.900 ft',
     velocidade: '845 km/h',
     aeronave: 'Airbus A350-900',
@@ -419,7 +419,7 @@ const MAP_FLIGHTS_RAW = [
   {
     id: 'UA0834',
     cia: 'United',
-    from: { code: 'NRT', city: 'Toquio', x: 82, y: 38, time: '16:50' },
+    from: { code: 'NRT', city: 'Tóquio', x: 82, y: 38, time: '16:50' },
     to: { code: 'SFO', city: 'San Francisco', x: 12, y: 38, time: '01:15' },
     altitude: '39.100 ft',
     velocidade: '890 km/h',
@@ -450,7 +450,7 @@ const MAP_FLIGHTS_RAW = [
     id: 'LH2098',
     cia: 'Lufthansa',
     from: { code: 'FRA', city: 'Frankfurt', x: 46, y: 33, time: '15:50' },
-    to: { code: 'GRU', city: 'Sao Paulo', x: 33, y: 66, time: '04:30' },
+    to: { code: 'GRU', city: 'São Paulo', x: 33, y: 66, time: '04:30' },
     altitude: '37.000 ft',
     velocidade: '830 km/h',
     aeronave: 'Boeing 747-8',
@@ -465,7 +465,7 @@ const MAP_FLIGHTS_RAW = [
     id: 'SU9876',
     cia: 'Aeroflot',
     from: { code: 'SVO', city: 'Moscou', x: 60, y: 28, time: '17:10' },
-    to: { code: 'GRU', city: 'Sao Paulo', x: 33, y: 66, time: '03:50' },
+    to: { code: 'GRU', city: 'São Paulo', x: 33, y: 66, time: '03:50' },
     altitude: '36.500 ft',
     velocidade: '820 km/h',
     aeronave: 'Airbus A330',
@@ -495,7 +495,7 @@ const MAP_FLIGHTS_RAW = [
     id: 'CA5678',
     cia: 'Air China',
     from: { code: 'PEK', city: 'Pequim', x: 80, y: 36, time: '19:05' },
-    to: { code: 'GRU', city: 'Sao Paulo', x: 33, y: 66, time: '06:40' },
+    to: { code: 'GRU', city: 'São Paulo', x: 33, y: 66, time: '06:40' },
     altitude: '39.000 ft',
     velocidade: '860 km/h',
     aeronave: 'Boeing 777-300ER',
@@ -524,7 +524,7 @@ const MAP_FLIGHTS_RAW = [
   {
     id: 'G32001',
     cia: 'Gol',
-    from: { code: 'GRU', city: 'Sao Paulo', x: 33, y: 66, time: '16:05' },
+    from: { code: 'GRU', city: 'São Paulo', x: 33, y: 66, time: '16:05' },
     to: { code: 'CNF', city: 'Belo Horizonte', x: 34, y: 68, time: '17:20' },
     altitude: '28.500 ft',
     velocidade: '720 km/h',
@@ -540,7 +540,7 @@ const MAP_FLIGHTS_RAW = [
     id: 'AZ5000',
     cia: 'Azul',
     from: { code: 'VCP', city: 'Campinas', x: 33, y: 65, time: '16:40' },
-    to: { code: 'BEL', city: 'Belem', x: 38, y: 50, time: '19:10' },
+    to: { code: 'BEL', city: 'Belém', x: 38, y: 50, time: '19:10' },
     altitude: '30.200 ft',
     velocidade: '760 km/h',
     aeronave: 'Embraer E195',
@@ -623,19 +623,19 @@ const MAP_FLIGHTS = MAP_FLIGHTS_RAW.map((flight) => ({
 
 const MAP_AIRPORT_POINTS = [
   // Brasil (por estado)
-  { code: 'GRU', city: 'Sao Paulo', country: 'Brasil', state: 'SP', lat: -23.4356, lng: -46.4731 },
-  { code: 'CGH', city: 'Sao Paulo', country: 'Brasil', state: 'SP', lat: -23.6267, lng: -46.6564 },
+  { code: 'GRU', city: 'São Paulo', country: 'Brasil', state: 'SP', lat: -23.4356, lng: -46.4731 },
+  { code: 'CGH', city: 'São Paulo', country: 'Brasil', state: 'SP', lat: -23.6267, lng: -46.6564 },
   { code: 'CGR', city: 'Campo Grande', country: 'Brasil', state: 'MS', lat: -20.4697, lng: -54.6725 },
   { code: 'VCP', city: 'Campinas', country: 'Brasil', state: 'SP', lat: -23.0074, lng: -47.1345 },
   { code: 'SJP', city: 'Sao Jose do Rio Preto', country: 'Brasil', state: 'SP', lat: -20.8166, lng: -49.4065 },
   { code: 'SDU', city: 'Rio de Janeiro', country: 'Brasil', state: 'RJ', lat: -22.9114, lng: -43.1649 },
   { code: 'GIG', city: 'Rio de Janeiro', country: 'Brasil', state: 'RJ', lat: -22.809, lng: -43.2506 },
-  { code: 'BSB', city: 'Brasilia', country: 'Brasil', state: 'DF', lat: -15.8692, lng: -47.9208 },
+  { code: 'BSB', city: 'Brasília', country: 'Brasil', state: 'DF', lat: -15.8692, lng: -47.9208 },
   { code: 'CNF', city: 'Belo Horizonte', country: 'Brasil', state: 'MG', lat: -19.6357, lng: -43.9669 },
   { code: 'REC', city: 'Recife', country: 'Brasil', state: 'PE', lat: -8.1265, lng: -34.9236 },
   { code: 'SSA', city: 'Salvador', country: 'Brasil', state: 'BA', lat: -12.9086, lng: -38.3225 },
   { code: 'FOR', city: 'Fortaleza', country: 'Brasil', state: 'CE', lat: -3.7763, lng: -38.5326 },
-  { code: 'BEL', city: 'Belem', country: 'Brasil', state: 'PA', lat: -1.3793, lng: -48.4763 },
+  { code: 'BEL', city: 'Belém', country: 'Brasil', state: 'PA', lat: -1.3793, lng: -48.4763 },
   { code: 'STM', city: 'Santarem', country: 'Brasil', state: 'PA', lat: -2.422, lng: -54.7923 },
   { code: 'MAO', city: 'Manaus', country: 'Brasil', state: 'AM', lat: -3.0386, lng: -60.0497 },
   { code: 'NVT', city: 'Navegantes', country: 'Brasil', state: 'SC', lat: -26.8799, lng: -48.6514 },
@@ -711,7 +711,7 @@ const MAP_AIRPORT_POINTS = [
   { code: 'NBO', city: 'Nairobi', country: 'Quenia', state: '-', lat: -1.3192, lng: 36.9278 },
   { code: 'JNB', city: 'Johannesburgo', country: 'Africa do Sul', state: '-', lat: -26.1337, lng: 28.242 },
   { code: 'CPT', city: 'Cidade do Cabo', country: 'Africa do Sul', state: '-', lat: -33.97, lng: 18.5972 },
-  { code: 'ADD', city: 'Adis Abeba', country: 'Etiopia', state: '-', lat: 8.9779, lng: 38.7993 },
+  { code: 'ADD', city: 'Adis Abeba', country: 'Etiópia', state: '-', lat: 8.9779, lng: 38.7993 },
   { code: 'LOS', city: 'Lagos', country: 'Nigeria', state: '-', lat: 6.5774, lng: 3.3212 },
   { code: 'CAI', city: 'Cairo', country: 'Egito', state: '-', lat: 30.1219, lng: 31.4056 },
   { code: 'CMN', city: 'Casablanca', country: 'Marrocos', state: '-', lat: 33.3675, lng: -7.5899 },
@@ -733,8 +733,8 @@ const MAP_AIRPORT_POINTS = [
   { code: 'PVG', city: 'Xangai', country: 'China', state: '-', lat: 31.1443, lng: 121.8083 },
   { code: 'PEK', city: 'Pequim', country: 'China', state: '-', lat: 40.0799, lng: 116.6031 },
   { code: 'ICN', city: 'Seul', country: 'Coreia do Sul', state: '-', lat: 37.4602, lng: 126.4407 },
-  { code: 'NRT', city: 'Toquio', country: 'Japao', state: '-', lat: 35.772, lng: 140.3929 },
-  { code: 'HND', city: 'Toquio', country: 'Japao', state: '-', lat: 35.5494, lng: 139.7798 },
+  { code: 'NRT', city: 'Tóquio', country: 'Japão', state: '-', lat: 35.772, lng: 140.3929 },
+  { code: 'HND', city: 'Tóquio', country: 'Japão', state: '-', lat: 35.5494, lng: 139.7798 },
   // Oceania
   { code: 'SYD', city: 'Sydney', country: 'Australia', state: '-', lat: -33.9399, lng: 151.1753 },
   { code: 'MEL', city: 'Melbourne', country: 'Australia', state: '-', lat: -37.669, lng: 144.841 },
@@ -859,9 +859,30 @@ function riscoLabel(risco) {
 }
 
 function mapFlightStatus(risco) {
-  if (risco === 'atraso') return 'Atraso Provável';
+  if (risco === 'atraso') return 'ATRASADO';
   if (risco === 'atencao') return 'Em Voo';
   return 'Confirmado';
+}
+
+function displayFlightStatus(flight) {
+  if (!flight) return '-';
+  if (flight.risco === 'atraso') return 'ATRASADO';
+
+  const raw = String(flight.statusRaw || '').trim();
+  if (!raw) return mapFlightStatus(flight.risco);
+
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (normalized.includes('cancel')) return 'CANCELADO';
+  if (normalized.includes('atras') || normalized.includes('delay')) return 'ATRASADO';
+  if (normalized.includes('prev') || normalized.includes('scheduled')) return 'PREVISTO';
+  if (normalized.includes('boarding') || normalized.includes('embarque')) return 'EMBARQUE';
+  if (normalized.includes('conclu') || normalized.includes('arriv') || normalized.includes('land')) return 'CONCLUÍDO';
+  if (normalized.includes('voo') || normalized.includes('airborne')) return 'EM VOO';
+  return raw.toUpperCase();
 }
 
 function mapFlightToTableRow(flight) {
@@ -1275,7 +1296,7 @@ function advanceFlightProgress(flight) {
   }
 
   function App() {
-  const [token, setToken] = useState(() => !!getStoredSessionFlag());
+  const [token, setToken] = useState(false);
   const [me, setMe] = useState(null);
   const [erro, setErro] = useState('');
   const [email, setEmail] = useState('user1@example.com');
@@ -1285,9 +1306,42 @@ function advanceFlightProgress(flight) {
   const [perfil, setPerfil] = useState('OPERADOR');
   const [modoAuth, setModoAuth] = useState('login');
   const [cookieStatus, setCookieStatus] = useState(() => localStorage.getItem('cookie_status') || '');
+  const [cookiePrefsOpen, setCookiePrefsOpen] = useState(false);
+  const [cookiePrefs, setCookiePrefs] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cookie_preferences') || '');
+    } catch (e) {
+      return null;
+    }
+  });
   const [loginOpen, setLoginOpen] = useState(false);
 
-  const showCookieBanner = cookieStatus !== 'aceito' && cookieStatus !== 'recusado';
+  const effectiveCookiePrefs = cookiePrefs || {
+    necessary: true,
+    analytics: false,
+    personalization: false,
+  };
+  const showCookieBanner = !['aceito', 'recusado', 'personalizado'].includes(cookieStatus);
+  const salvarCookieStatus = (status, prefs = null) => {
+    const nextPrefs = prefs || {
+      necessary: true,
+      analytics: status === 'aceito',
+      personalization: status === 'aceito',
+    };
+    setCookieStatus(status);
+    setCookiePrefs(nextPrefs);
+    setCookiePrefsOpen(false);
+    localStorage.setItem('cookie_status', status);
+    localStorage.setItem('cookie_preferences', JSON.stringify(nextPrefs));
+  };
+  const toggleCookiePref = (key) => {
+    if (key === 'necessary') return;
+    setCookiePrefs((current) => ({
+      ...effectiveCookiePrefs,
+      ...(current || {}),
+      [key]: !effectiveCookiePrefs[key],
+    }));
+  };
   const renderCookieBanner = () => {
     if (!showCookieBanner) return null;
     return (
@@ -1297,10 +1351,48 @@ function advanceFlightProgress(flight) {
           <span>{tr('Usamos cookies para melhorar sua experiência e analisar o tráfego. Você pode aceitar, recusar ou ajustar preferências.', 'We use cookies to improve your experience and analyze traffic. You can accept, reject, or adjust preferences.')}</span>
         </div>
         <div className="cookie-actions">
-          <button className="btn ghost" type="button">{tr('Preferências', 'Preferences')}</button>
-          <button className="btn ghost" onClick={() => { setCookieStatus('recusado'); localStorage.setItem('cookie_status', 'recusado'); }}>{tr('Recusar', 'Reject')}</button>
-          <button className="btn primary" onClick={() => { setCookieStatus('aceito'); localStorage.setItem('cookie_status', 'aceito'); }}>{tr('Aceitar', 'Accept')}</button>
+          <button className="btn ghost" type="button" onClick={() => setCookiePrefsOpen(true)}>{tr('Preferências', 'Preferences')}</button>
+          <button className="btn ghost" onClick={() => salvarCookieStatus('recusado')}>{tr('Recusar', 'Reject')}</button>
+          <button className="btn primary" onClick={() => salvarCookieStatus('aceito')}>{tr('Aceitar', 'Accept')}</button>
         </div>
+        {cookiePrefsOpen ? (
+          <div className="cookie-preferences" role="dialog" aria-modal="true" aria-label={tr('Preferências de cookies', 'Cookie preferences')}>
+            <div className="cookie-preferences-head">
+              <div>
+                <strong>{tr('Preferências de cookies', 'Cookie preferences')}</strong>
+                <p>{tr('Escolha quais categorias deseja permitir.', 'Choose which categories you want to allow.')}</p>
+              </div>
+              <button className="cookie-close" type="button" onClick={() => setCookiePrefsOpen(false)} aria-label={tr('Fechar', 'Close')}>×</button>
+            </div>
+            <div className="cookie-options">
+              <label className="cookie-option locked">
+                <span>
+                  <strong>{tr('Necessários', 'Necessary')}</strong>
+                  <small>{tr('Mantêm login, segurança e funcionamento básico.', 'Keep login, security and basic functionality working.')}</small>
+                </span>
+                <input type="checkbox" checked readOnly />
+              </label>
+              <label className="cookie-option">
+                <span>
+                  <strong>{tr('Análise', 'Analytics')}</strong>
+                  <small>{tr('Ajudam a medir uso e melhorar a experiência.', 'Help measure usage and improve the experience.')}</small>
+                </span>
+                <input type="checkbox" checked={!!effectiveCookiePrefs.analytics} onChange={() => toggleCookiePref('analytics')} />
+              </label>
+              <label className="cookie-option">
+                <span>
+                  <strong>{tr('Personalização', 'Personalization')}</strong>
+                  <small>{tr('Guardam preferências de interface e navegação.', 'Store interface and navigation preferences.')}</small>
+                </span>
+                <input type="checkbox" checked={!!effectiveCookiePrefs.personalization} onChange={() => toggleCookiePref('personalization')} />
+              </label>
+            </div>
+            <div className="cookie-preferences-actions">
+              <button className="btn ghost" type="button" onClick={() => salvarCookieStatus('recusado')}>{tr('Recusar todos', 'Reject all')}</button>
+              <button className="btn primary" type="button" onClick={() => salvarCookieStatus('personalizado', effectiveCookiePrefs)}>{tr('Salvar preferências', 'Save preferences')}</button>
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -1434,6 +1526,20 @@ function advanceFlightProgress(flight) {
   const CHAT_USE_LLM_DEFAULT = true;
   const [tema, setTema] = useState(() => localStorage.getItem('theme_mode') || 'escuro');
   const [idioma, setIdioma] = useState(() => localStorage.getItem('language_mode') || 'pt-BR');
+  const currentUserProfile = useMemo(() => {
+    const isEnglish = idioma === 'en';
+    const roleKey = String(me?.perfil || '').toUpperCase();
+    const roleLabel = ROLE_LABELS[roleKey]
+      ? (isEnglish ? ROLE_LABELS[roleKey].en : ROLE_LABELS[roleKey].pt)
+      : (roleKey || (isEnglish ? 'Guest' : 'Visitante'));
+
+    return {
+      nome: me?.nome || (isEnglish ? 'Unauthenticated user' : 'Usuário não autenticado'),
+      email: me?.email || '-',
+      cargo: roleLabel,
+      companhia: me?.companhia || '',
+    };
+  }, [idioma, me]);
   const [densidade, setDensidade] = useState(() => localStorage.getItem('density_mode') || 'confortavel');
   const [securityView, setSecurityView] = useState('senha');
   const [securityFeedback, setSecurityFeedback] = useState('');
@@ -1633,6 +1739,7 @@ function advanceFlightProgress(flight) {
       } catch (_) {
         if (!cancelled) {
           setMe(null);
+          clearAuthToken();
           setToken(false);
         }
       }
@@ -1755,15 +1862,15 @@ function advanceFlightProgress(flight) {
     () => clockNow.toLocaleTimeString(idioma === 'en' ? 'en-US' : 'pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     [clockNow, idioma]
   );
-  const currentRole = String(me?.perfil || perfil || 'OPERADOR').toUpperCase();
+  const currentRole = String(me?.perfil || '').toUpperCase();
   const isAdmin = currentRole === 'ADMIN';
   const isPassenger = currentRole === 'PASSAGEIRO';
   const canManageFlights = isAdmin;
   const canCreateReports = isAdmin || currentRole === 'OPERADOR';
   const canManageSecurity = isAdmin || currentRole === 'OPERADOR';
   const roleLabel = idioma === 'en'
-    ? (ROLE_LABELS[currentRole]?.en || currentRole)
-    : (ROLE_LABELS[currentRole]?.pt || currentRole);
+    ? (ROLE_LABELS[currentRole]?.en || 'Guest')
+    : (ROLE_LABELS[currentRole]?.pt || 'Visitante');
 	  const addAudit = (actionPt, actionEn, details = '', severity = 'info') => {
 	    const entry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1778,7 +1885,7 @@ function advanceFlightProgress(flight) {
 	  };
 	  const requireAuthenticatedAction = () => {
 	    if (token) return true;
-	    setSecurityFeedback(tr('Faca login para registrar consentimentos e solicitacoes LGPD.', 'Sign in to register LGPD consents and requests.'));
+	    setSecurityFeedback(tr('Faça login para registrar consentimentos e solicitações LGPD.', 'Sign in to register LGPD consents and requests.'));
 	    setModoAuth('login');
 	    setLoginOpen(true);
 	    return false;
@@ -1790,14 +1897,16 @@ function advanceFlightProgress(flight) {
 	      setMe(null);
 	      setModoAuth('login');
 	      setLoginOpen(true);
-	      setSecurityFeedback(tr('Sua sessao expirou. Faca login novamente para continuar.', 'Your session expired. Sign in again to continue.'));
+	      setSecurityFeedback(tr('Sua sessão expirou. Faça login novamente para continuar.', 'Your session expired. Sign in again to continue.'));
 	      return;
 	    }
 	    setSecurityFeedback(err?.response?.data?.error || tr(fallbackPt, fallbackEn));
 	  };
 	  const trStatus = (status) => {
     const s = String(status || '').toLowerCase();
-    if (s.includes('atraso')) return tr('Atraso Provável', 'Likely Delay');
+    if (s.includes('atras')) return tr('Atrasado', 'Delayed');
+    if (s.includes('cancel')) return tr('Cancelado', 'Canceled');
+    if (s.includes('previsto')) return tr('Previsto', 'Scheduled');
     if (s.includes('confirm')) return tr('Confirmado', 'Confirmed');
     if (s.includes('voo')) return tr('Em Voo', 'In Flight');
     if (s.includes('manut')) return tr('Manutenção', 'Maintenance');
@@ -1826,12 +1935,17 @@ function advanceFlightProgress(flight) {
       originWeatherLabel.includes(term) || destWeatherLabel.includes(term)
     );
 
-    if (displayedFlight?.statusRaw) {
-      const statusTone = String(displayedFlight.statusRaw).toLowerCase().includes('atras') ? 'danger' : 'ok';
+    if (displayedFlight?.statusRaw || displayedFlight?.risco) {
+      const statusLabel = displayFlightStatus(displayedFlight);
+      const statusNormalized = statusLabel
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+      const statusTone = statusNormalized.includes('atras') || statusNormalized.includes('cancel') ? 'danger' : 'ok';
       signals.push({
         tone: statusTone,
         title: tr('Status operacional', 'Operational status'),
-        value: displayedFlight.statusRaw,
+        value: statusLabel,
         detail: statusTone === 'danger'
           ? tr('O status atual já sugere impacto operacional no voo.', 'The current status already suggests operational impact on this flight.')
           : tr('O status atual ainda indica operação estável.', 'The current status still indicates a stable operation.'),
@@ -2189,7 +2303,7 @@ function advanceFlightProgress(flight) {
         return;
       }
       try {
-        const resp = await api.get(`/voos/live?source=opensky&limit=${LIVE_FLIGHTS_LIMIT}`);
+        const resp = await api.get(`/voos/live?source=all&limit=${LIVE_FLIGHTS_LIMIT}`);
         const items = Array.isArray(resp?.data?.items) ? resp.data.items : [];
         const mapped = items
           .map((item) => mapLiveFlightToMapFlight(item, airportCatalog))
@@ -2524,6 +2638,8 @@ function advanceFlightProgress(flight) {
         }
       }
       if (!resp) throw new Error('login_failed');
+      if (!resp?.data?.token) throw new Error('missing_token');
+      setAuthToken(resp.data.token, !!rememberMe);
       setToken(true);
       const meResp = await api.get('/auth/me');
       setMe(meResp.data);
@@ -2557,6 +2673,7 @@ function advanceFlightProgress(flight) {
     } catch (_) {
       // ignore
     }
+    clearAuthToken();
     setToken(false);
     setMe(null);
     setSenha('');
@@ -2651,6 +2768,17 @@ function advanceFlightProgress(flight) {
     const pergunta = (opts.pergunta ?? chatInput).trim();
     const page = Number(opts.page ?? 1);
     if (!pergunta || chatSending) return;
+
+    if (!token && !getAuthToken()) {
+      setModoAuth('login');
+      setLoginOpen(true);
+      setChatMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: tr('Faça login para usar o chat IA.', 'Sign in to use the AI chat.'),
+        meta: null,
+      }]);
+      return;
+    }
 
     if (!opts.keepInput) setChatInput('');
     setChatSending(true);
@@ -3139,7 +3267,17 @@ function advanceFlightProgress(flight) {
                   <path d="M12 5V3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                 </svg>
               </button>
-              <span className="who">{me?.nome || 'Operador'} ({roleLabel})</span>
+              {token && me ? (
+                <span className="who">{me.nome || me.email || tr('Usuário', 'User')} ({roleLabel})</span>
+              ) : (
+                <button className="who login-chip" onClick={() => setLoginOpen(true)} type="button" aria-label={tr('Entrar', 'Sign in')}>
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.6" />
+                    <path d="M5 19c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                  <span>{tr('Entrar', 'Sign in')}</span>
+                </button>
+              )}
               <button className={`privacy-toggle ${privacyMode ? 'on' : ''}`} onClick={() => setPrivacyMode((v) => !v)}>
                 {tr('Modo Privacidade', 'Privacy Mode')} {privacyMode ? 'ON' : 'OFF'}
               </button>
@@ -3629,9 +3767,12 @@ function advanceFlightProgress(flight) {
             <div className="settings-grid">
               <div className="panel">
                 <h3 className="card-title-icon"><span className="card-icon blue"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.6" /><path d="M5 19c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg></span>{tr('Perfil do Usuário', 'User Profile')}</h3>
-                <label>{tr('Nome', 'Name')}<input value={mask('Operador Sistema', privacyMode)} readOnly /></label>
-                <label>{tr('Email', 'Email')}<input value={mask('operador@aeroporto.com', privacyMode)} readOnly /></label>
-                <label>{tr('Cargo', 'Role')}<select><option>{tr('Operador Sênior', 'Senior Operator')}</option></select></label>
+                <label>{tr('Nome', 'Name')}<input value={mask(currentUserProfile.nome, privacyMode)} readOnly /></label>
+                <label>{tr('Email', 'Email')}<input value={mask(currentUserProfile.email, privacyMode)} readOnly /></label>
+                <label>{tr('Cargo', 'Role')}<select value={currentUserProfile.cargo} disabled><option value={currentUserProfile.cargo}>{currentUserProfile.cargo}</option></select></label>
+                {currentUserProfile.companhia ? (
+                  <label>{tr('Companhia', 'Airline')}<input value={mask(currentUserProfile.companhia, privacyMode)} readOnly /></label>
+                ) : null}
               </div>
               <div className="panel">
                 <h3 className="card-title-icon"><span className="card-icon amber"><svg viewBox="0 0 24 24" fill="none"><path d="M12 4a4 4 0 0 0-4 4v1.8c0 .9-.3 1.7-.8 2.4L6 14h12l-1.2-1.8a4 4 0 0 1-.8-2.4V8a4 4 0 0 0-4-4Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /><path d="M10 17a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg></span>{tr('Notificações', 'Notifications')}</h3>
@@ -3747,7 +3888,7 @@ function advanceFlightProgress(flight) {
 	                      {!token ? (
 	                        <div className="lgpd-login-notice">
 	                          <strong>{tr('Login necessario', 'Sign in required')}</strong>
-	                          <p>{tr('Entre na sua conta para salvar consentimentos e registrar solicitacoes no banco SPEC.', 'Sign in to save consents and register requests in the SPEC database.')}</p>
+	                          <p>{tr('Entre na sua conta para salvar consentimentos e registrar solicitações no banco SPEC.', 'Sign in to save consents and register requests in the SPEC database.')}</p>
 	                          <button className="btn primary small" onClick={() => { setModoAuth('login'); setLoginOpen(true); }}>
 	                            {tr('Entrar agora', 'Sign in now')}
 	                          </button>
@@ -4002,7 +4143,7 @@ function advanceFlightProgress(flight) {
             <div className="flight-meta">
               <div className="flight-meta-row">
                 <span>{tr('Status', 'Status')}</span>
-                <strong>{displayedFlight.statusRaw || mapFlightStatus(displayedFlight.risco)}</strong>
+                <strong>{displayFlightStatus(displayedFlight)}</strong>
               </div>
               <div className="flight-meta-row">
                 <span>{tr('Região', 'Region')}</span>

@@ -14,48 +14,42 @@ Este documento define a base SPEC para a Sky CIA, derivada do banco operacional 
 - criado_em
 - atualizado_em
 
-### consentimento_lgpd
-- id_consentimento (PK)
-- id_usuario (FK usuario)
-- finalidade (EX: ALERTAS_RISCO, MARKETING, PESQUISA)
-- status (ATIVO | REVOGADO)
-- data_aceite
-- data_revogacao
-- origem (WEB | APP | API)
+### consentimento
+- id (PK)
+- usuario_id (FK usuario)
+- tipo (OPERACIONAL | IA_PREDITIVA | IA_GENERATIVA | RELATORIOS | AUDITORIA)
+- concedido
+- data_hora
 
-### preferencia_viagem
-- id_preferencia (PK)
-- id_usuario (FK usuario)
-- origem_frequente
-- destino_frequente
-- janela_horaria
+### log_acesso_dado
+- id (PK)
+- usuario_id (FK usuario)
+- acao
+- entidade
+- detalhes
+- data_hora
+
+### usuario_seguranca
+- usuario_id (PK/FK usuario)
+- two_factor_enabled
 - atualizado_em
 
-### consulta_risco
-- id_consulta (PK)
-- id_usuario (FK usuario)
-- numero_voo (referência lógica ao banco operacional)
-- percent_risco
-- label_risco (BAIXO | MEDIO | ALTO | CRITICO)
-- modelo_ia (TRADICIONAL | GENERATIVA)
-- explicacao
-- consultado_em
+### sessao_usuario
+- id (PK)
+- usuario_id (FK usuario)
+- jti
+- user_agent
+- ip
+- ativa
+- criado_em
+- revogada_em
 
-### notificacao
-- id_notificacao (PK)
-- id_usuario (FK usuario)
-- tipo (ALERTA | INFORMATIVO)
-- mensagem
-- enviado_em
-- canal
-- status (ENVIADO | FALHA)
-
-### feedback_usuario
-- id_feedback (PK)
-- id_usuario (FK usuario)
-- numero_voo
-- avaliacao (1-5)
-- comentario
+### solicitacao_lgpd
+- id (PK)
+- usuario_id (FK usuario)
+- tipo (EXPORTACAO | EXCLUSAO)
+- status
+- detalhes
 - criado_em
 
 ## 2) Regras LGPD

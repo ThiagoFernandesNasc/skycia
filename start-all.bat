@@ -140,7 +140,7 @@ if "%MYSQL_AVAILABLE%"=="1" (
 )
 
 echo [6/6] Iniciando aplicacao...
-start "SkyLine-API" cmd /k "cd /d %ROOT%projetoti && npm run dev"
+start "SkyLine-API" cmd /k "cd /d %ROOT%projetoti && npm start"
 start "SkyLine-Frontend" cmd /k "cd /d %ROOT%frontend && npm run dev"
 
 echo.
