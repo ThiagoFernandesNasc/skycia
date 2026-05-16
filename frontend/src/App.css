@@ -2942,6 +2942,272 @@
   }
 }
 
+@media (max-width: 640px) {
+  .main {
+    padding: 10px 10px 18px;
+  }
+
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 120;
+    margin: -10px -10px 10px;
+    padding: 8px 10px;
+    gap: 8px;
+    background: rgba(4, 10, 22, 0.94);
+    border-bottom: 1px solid rgba(120, 152, 206, 0.18);
+    backdrop-filter: blur(12px);
+  }
+
+  .layout.theme-light .header {
+    background: rgba(238, 245, 255, 0.94);
+  }
+
+  .app-logo {
+    height: 34px;
+    max-width: 120px;
+    object-fit: contain;
+  }
+
+  .menu-toggle,
+  .ai-toggle {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+  }
+
+  .global-search-wrap {
+    order: 3;
+    width: 100%;
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .header-actions {
+    width: auto;
+    margin-left: auto;
+    justify-content: flex-end;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .meta-pill {
+    min-height: 34px;
+    padding: 6px 9px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .privacy-toggle {
+    max-width: 132px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .btn {
+    min-height: 38px;
+  }
+
+  .btn.small {
+    padding: 8px 10px;
+  }
+
+  .section h2 {
+    font-size: 22px;
+    line-height: 1.18;
+  }
+
+  .section p {
+    font-size: 14px;
+  }
+
+  .panel,
+  .kpi,
+  .aircraft-card,
+  .security-box,
+  .report-kpi {
+    border-radius: 10px;
+    padding: 12px;
+  }
+
+  .kpi-row,
+  .grid-dashboard,
+  .cards-grid,
+  .settings-grid,
+  .security-actions,
+  .report-summary-strip,
+  .report-filter-panel {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .map-stage {
+    height: min(66vh, 430px);
+    min-height: 340px;
+    border-radius: 10px;
+  }
+
+  .leaflet-map {
+    min-height: 340px;
+  }
+
+  .map-toolbar {
+    position: relative;
+    z-index: 25;
+    gap: 8px;
+  }
+
+  .map-toolbar-left,
+  .status-filters,
+  .scope-filters {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .status-filters {
+    position: static;
+    margin: 8px 0;
+  }
+
+  .status-chip,
+  .scope-chip {
+    flex: 1 1 105px;
+    min-height: 36px;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .map-search-wrap {
+    width: 100%;
+  }
+
+  .map-count-card,
+  .map-source-badge,
+  .map-badge {
+    position: static;
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .ai-drawer {
+    inset: auto 10px 10px 10px;
+    top: auto;
+    width: auto;
+    max-height: calc(100vh - 86px);
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+  }
+
+  .ai-drawer .chat-body,
+  .chat .chat-body {
+    min-height: 180px;
+    max-height: min(46vh, 360px);
+    overflow-y: auto;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .chat-form {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-form .btn,
+  .chat-form button {
+    width: 100%;
+  }
+
+  .table {
+    min-width: 720px;
+  }
+
+  .panel,
+  .table-scroll,
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table th,
+  .table td {
+    padding: 9px 8px;
+    font-size: 13px;
+  }
+
+  .row-tools,
+  .table-tools,
+  .report-actions,
+  .report-preview-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .row-tools select,
+  .table-tools select,
+  .report-filter-panel select,
+  .settings-grid input,
+  .settings-grid select,
+  .security-box input,
+  .security-box select {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .aeronaves-header,
+  .voos-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .aeronaves-total {
+    width: 100%;
+    text-align: left;
+  }
+
+  .flight-modal {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 18px);
+    border-radius: 14px;
+  }
+
+  .flight-modal-backdrop {
+    padding: 9px;
+    align-items: center;
+  }
+
+  .route-airports {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .route-airports h3 {
+    font-size: 30px;
+  }
+
+  .central-time {
+    flex-wrap: wrap;
+  }
+
+  .report-preview-modal {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+
+  .auth-card {
+    width: min(100%, 390px);
+    padding: 18px;
+  }
+
+  .auth-globe {
+    width: 100vw;
+    opacity: 0.52;
+  }
+}
+
 @keyframes pulse {
   0% { transform: scale(1); opacity: 1; }
   70% { transform: scale(1.4); opacity: 0.4; }
