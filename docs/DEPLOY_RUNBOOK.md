@@ -48,7 +48,8 @@ npm start
 ```
 
 O comando `npm run build` instala dependências do backend e frontend e gera `frontend/dist`.
-O comando `npm start` inicializa os bancos e sobe o Express, que serve frontend, API e Swagger na mesma URL.
+O comando `npm start` sobe o Express, que serve frontend, API e Swagger na mesma URL.
+Para inicializar os bancos manualmente, rode `npm run init:db`.
 
 ## 7) Deploy recomendado: Railway
 
@@ -94,7 +95,15 @@ npm run build
 npm start
 ```
 
-6. Após o deploy, teste:
+6. Depois que o serviço MySQL estiver criado e as variáveis estiverem disponíveis no serviço web, rode o inicializador do banco uma vez:
+
+```bash
+npm run init:db
+```
+
+No Railway isso pode ser feito abrindo um shell/one-off command no serviço web, ou temporariamente alterando o start command para `npm run init:db && npm start`, aguardando passar, e depois voltando para `npm start`.
+
+7. Após o deploy, teste:
 
 ```text
 https://URL_PUBLICA/
