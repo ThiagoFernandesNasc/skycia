@@ -184,8 +184,8 @@ Authorization: Bearer <token>
   "sugestoes": [],
   "paginacao": null,
   "source": "llm",
-  "provider": "gemini",
-  "model": "gemini-2.5-flash",
+  "provider": "openai",
+  "model": "gpt-4o-mini",
   "totalVoosAvaliados": 21
 }
 ```

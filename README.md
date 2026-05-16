@@ -17,7 +17,7 @@ Projeto com back-end (Node/Express) e front-end (React/Vite) para analise de ris
 2. Configure o `.env` do back-end:
    - Copie `projetoti/.env.example` para `projetoti/.env`
    - Ajuste credenciais e segredo JWT
-   - Para o chat com Gemini, configure `LLM_PROVIDER=gemini`, `GEMINI_API_KEY` e `GEMINI_MODEL=gemini-2.5-flash`
+   - Para o chat com OpenAI, configure `LLM_PROVIDER=openai`, `OPENAI_API_KEY` e `OPENAI_MODEL=gpt-4o-mini`
    - Ajuste `CORS_ORIGIN` para o host do front (ex.: `http://localhost:5173`)
    - Nunca versione o `.env` (use o `.env.example`)
    - Se uma chave/senha vazar, gere outra e substitua

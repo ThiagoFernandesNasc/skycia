@@ -189,7 +189,8 @@ router.post('/chat', async (req, res) => {
     source = 'rules';
 
     const topicosLocais = new Set(['conversa', 'fora_escopo', 'capacidade', 'site']);
-    if (usarLLM && resposta.confianca !== 'alta' && !topicosLocais.has(resposta.topico)) {
+    const pedeAnaliseGenerativa = /\b(resumo executivo|recomend|analise|análise|insight|estrateg|estratég|explique)\b/i.test(pergunta);
+    if (usarLLM && (pedeAnaliseGenerativa || resposta.confianca !== 'alta') && !topicosLocais.has(resposta.topico)) {
       try {
         const llm = await gerarRespostaLLM({
           pergunta,

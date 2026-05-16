@@ -1,0 +1,13 @@
+{
+  "name": "skytrak-deploy",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm install --prefix projetoti && npm install --prefix frontend && npm --prefix frontend run build",
+    "start": "npm --prefix projetoti run init:db && npm --prefix projetoti start",
+    "test": "npm --prefix projetoti test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

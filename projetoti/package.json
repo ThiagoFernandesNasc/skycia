@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node scripts/validate-quality.js",
     "validate:quality": "node scripts/validate-quality.js",
+    "init:db": "node scripts/init-db.js",
     "check:gemini": "node scripts/check-gemini.js",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js"

@@ -187,7 +187,7 @@ async function gerarRespostaLLM({ pergunta, historico = [], voos = [], modo = 'e
 
   if (provider === 'openai') {
     const apiKey = process.env.OPENAI_API_KEY;
-    const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
     if (!apiKey) throw new Error('OPENAI_API_KEY ausente');
     const resposta = await callOpenAI({ model, apiKey, systemPrompt, userPrompt });
     return { resposta, provider: 'openai', model };

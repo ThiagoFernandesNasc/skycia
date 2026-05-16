@@ -104,7 +104,11 @@ function topCompanhias(voos) {
 function detectarCompanhia(pergunta, voos) {
   const q = normalizar(pergunta);
   const nomes = [...new Set(voos.map((v) => String(v.companhia || '').trim()).filter(Boolean))];
-  return nomes.find((nome) => q.includes(normalizar(nome))) || null;
+  return nomes.find((nome) => {
+    const n = normalizar(nome);
+    if (n.length <= 3) return new RegExp(`(^|\\s)${n}(\\s|$)`).test(q);
+    return q.includes(n);
+  }) || null;
 }
 
 function paginar(items, page = 1, limit = 10) {
