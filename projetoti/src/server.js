@@ -85,5 +85,5 @@ initDatabases()
     console.log('Banco inicializado/verificado no boot.');
   })
   .catch((err) => {
-    console.error(`Banco indisponivel no boot; API continua online: ${err.message}`);
+    console.error(`Banco indisponivel no boot; API continua online: ${err.code || err.name || 'ERROR'} ${err.message || err}`);
   });
