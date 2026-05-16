@@ -8,6 +8,7 @@ const voosRoutes = require('./routes/voos.routes');
 const authRoutes = require('./routes/auth.routes'); // <-- novo
 const iaRoutes = require('./routes/ia.routes');
 const { openApiSpec } = require('./docs/openapi');
+const { initDatabases } = require('../scripts/init-db');
 
 let swaggerUi = null;
 try {
@@ -78,3 +79,11 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`API rodando na porta ${port}`);
 });
+
+initDatabases()
+  .then(() => {
+    console.log('Banco inicializado/verificado no boot.');
+  })
+  .catch((err) => {
+    console.error(`Banco indisponivel no boot; API continua online: ${err.message}`);
+  });

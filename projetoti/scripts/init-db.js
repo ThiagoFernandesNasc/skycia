@@ -10,7 +10,7 @@ async function runSqlFile(connection, fileName) {
   console.log(`Banco inicializado: ${fileName}`);
 }
 
-async function main() {
+async function initDatabases() {
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
     port: Number(process.env.DB_PORT || process.env.MYSQLPORT || 3306),
@@ -27,7 +27,11 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(`Falha ao inicializar banco: ${err.message}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  initDatabases().catch((err) => {
+    console.error(`Falha ao inicializar banco: ${err.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { initDatabases };
