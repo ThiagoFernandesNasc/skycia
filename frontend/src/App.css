@@ -3127,6 +3127,7 @@
   .map-toolbar-left {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 6px;
   }
 
@@ -3184,6 +3185,26 @@
 
   .zoom-controls {
     margin-left: auto;
+    flex: 0 0 auto;
+    gap: 8px;
+    padding: 3px;
+    border-radius: 12px;
+    border: 1px solid rgba(110, 159, 235, 0.34);
+    background: rgba(5, 14, 28, 0.9);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  }
+
+  .zoom-btn {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    border-radius: 10px;
+    border-color: rgba(122, 177, 255, 0.58);
+    background: rgba(25, 78, 160, 0.92);
+    color: #ffffff;
+    font-size: 22px;
+    line-height: 1;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
   }
 
   .scope-filters {
@@ -3192,19 +3213,30 @@
     right: auto;
     bottom: auto;
     z-index: 2;
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 6px;
-    padding: 4px 10px 8px;
-    overflow-x: auto;
-    background: rgba(6, 16, 32, 0.92);
-    -webkit-overflow-scrolling: touch;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 8px 10px 10px;
+    overflow: hidden;
+    background: rgba(6, 16, 32, 0.96);
   }
 
   .scope-chip {
-    flex: 0 0 auto;
+    min-width: 0;
+    width: 100%;
     font-size: 11px;
-    padding-inline: 8px;
+    line-height: 1.15;
+    padding: 9px 6px;
+    border-radius: 10px;
+    background: rgba(12, 31, 56, 0.9);
+    border-color: rgba(104, 141, 197, 0.34);
+  }
+
+  .scope-chip.active {
+    background: rgba(31, 103, 255, 0.9);
+    border-color: rgba(129, 179, 255, 0.78);
+    color: #ffffff;
+    box-shadow: 0 8px 18px rgba(31, 103, 255, 0.26);
   }
 
   .map-legend-row {
