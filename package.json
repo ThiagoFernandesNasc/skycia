@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "npm install --prefix projetoti && npm install --prefix frontend && npm --prefix frontend run build",
+    "build": "npm install --prefix projetoti && npm install --include=dev --prefix frontend && npm --prefix frontend run build",
     "start": "npm --prefix projetoti start",
     "init:db": "npm --prefix projetoti run init:db",
     "test": "npm --prefix projetoti test"
