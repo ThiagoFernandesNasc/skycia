@@ -190,7 +190,8 @@ router.post('/chat', async (req, res) => {
 
     const topicosLocais = new Set(['conversa', 'fora_escopo', 'capacidade', 'site']);
     const pedeAnaliseGenerativa = /\b(resumo executivo|recomend|analise|análise|insight|estrateg|estratég|explique)\b/i.test(pergunta);
-    if (usarLLM && (pedeAnaliseGenerativa || resposta.confianca !== 'alta') && !topicosLocais.has(resposta.topico)) {
+    const pedeConsultaOperacionalIA = /\b(quais voos|voos atrasad|voos cancelad|pr[oó]ximos voos|status do voo|listar voos|mostre os voos)\b/i.test(pergunta);
+    if (usarLLM && (pedeAnaliseGenerativa || pedeConsultaOperacionalIA || resposta.confianca !== 'alta') && !topicosLocais.has(resposta.topico)) {
       try {
         const llm = await gerarRespostaLLM({
           pergunta,
