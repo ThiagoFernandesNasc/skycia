@@ -43,6 +43,15 @@ const ROLE_LABELS = {
 const DEFAULT_ASSISTANT_PT = 'Posso responder sobre o site e sobre voos. Exemplo: "quais voos estão atrasados?"';
 const DEFAULT_ASSISTANT_EN = 'I can answer about the website and flights. Example: "which flights are delayed?"';
 
+const formatChatSource = (meta, tr) => {
+  if (!meta?.source) return null;
+  if (meta.source === 'llm') {
+    return `${meta.provider || 'LLM'}${meta.model ? ` (${meta.model})` : ''}`;
+  }
+  if (meta.source === 'rules') return tr('regras locais', 'local rules');
+  return tr('fallback local', 'local fallback');
+};
+
 const LGPD_PURPOSES = [
   {
     key: 'OPERACIONAL',
@@ -3312,7 +3321,7 @@ function advanceFlightProgress(flight) {
                 <p key={`drawer-${idx}`}>
                   <strong>{m.role === 'assistant' ? 'IA' : tr('Você', 'You')}:</strong> {m.content}
                   {m.role === 'assistant' && m.meta?.confianca ? <span className="chat-meta"> · {tr('Confiança', 'Confidence')}: {m.meta.confianca}</span> : null}
-                  {m.role === 'assistant' && m.meta?.source ? <span className="chat-meta"> · {tr('Fonte', 'Source')}: {m.meta.source === 'llm' ? `${m.meta.provider || 'LLM'}${m.meta.model ? ` (${m.meta.model})` : ''}` : tr('fallback local', 'local fallback')}</span> : null}
+                  {m.role === 'assistant' && m.meta?.source ? <span className="chat-meta"> · {tr('Fonte', 'Source')}: {formatChatSource(m.meta, tr)}</span> : null}
                 </p>
               ))}
             </div>
@@ -3527,7 +3536,7 @@ function advanceFlightProgress(flight) {
                 <p key={`panel-${idx}`}>
                   <strong>{m.role === 'assistant' ? 'IA' : tr('Você', 'You')}:</strong> {m.content}
                   {m.role === 'assistant' && m.meta?.confianca ? <span className="chat-meta"> · {tr('Confiança', 'Confidence')}: {m.meta.confianca}</span> : null}
-                  {m.role === 'assistant' && m.meta?.source ? <span className="chat-meta"> · {tr('Fonte', 'Source')}: {m.meta.source === 'llm' ? `${m.meta.provider || 'LLM'}${m.meta.model ? ` (${m.meta.model})` : ''}` : tr('fallback local', 'local fallback')}</span> : null}
+                  {m.role === 'assistant' && m.meta?.source ? <span className="chat-meta"> · {tr('Fonte', 'Source')}: {formatChatSource(m.meta, tr)}</span> : null}
                 </p>
               ))}
             </div>
